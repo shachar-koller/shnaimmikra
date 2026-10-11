@@ -84,17 +84,6 @@ function announce(msg) {
   if (el) el.textContent = msg;
 }
 
-// "OCT 11–17" for the Sun–Sat week ending on the given Shabbat date.
-function weekRange(shabbat) {
-  const end = new Date(shabbat);
-  const start = new Date(shabbat);
-  start.setDate(start.getDate() - 6);
-  const mon = d => d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  if (start.getMonth() === end.getMonth()) return `${mon(start)} ${start.getDate()}–${end.getDate()}`;
-  if (start.getFullYear() === end.getFullYear()) return `${mon(start)} ${start.getDate()} – ${mon(end)} ${end.getDate()}`;
-  return `${mon(start)} ${start.getDate()} ${start.getFullYear()} – ${mon(end)} ${end.getDate()} ${end.getFullYear()}`;
-}
-
 function readingRow(key, num, label, on, ariaLabel) {
   return `<li>
     <button class="readrow" data-reading="${key}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${ariaLabel}">
@@ -116,12 +105,10 @@ function render() {
   const isWeekly = item.id === weekly.id;
   const sIdx = seferOf(item.id);
   const seferRows = rows.filter(r => seferOf(r.id) === sIdx);
-  const seferPos = seferRows.indexOf(item) + 1;
   const seferDone = seferRows.filter(r => complete(state(r.id))).length;
   const hebYear = hebrewYearOf(item.date);
   const next = rows[idx + 1] || null;
   const groups = SEFARIM.map((s, i) => ({ ...s, rows: rows.filter(r => seferOf(r.id) === i) })).filter(g => g.rows.length);
-  const pref = data.commentary === 'rashi' ? 'rashi' : 'onkelos';
   const targumOn = !!(p.onkelos || p.rashi);
   const activeFlavor = p.onkelos ? 'Onkelos' : p.rashi ? 'Rashi' : null;
   const isDark = document.documentElement.dataset.theme === 'dark';
@@ -139,12 +126,10 @@ function render() {
     </header>
 
     <main>
-      <p class="eyebrow">${isWeekly ? 'THIS WEEK' : 'WEEK OF'} · ${weekRange(item.date)}</p>
       <div class="titlerow">
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </div>
-      <p class="subtitle">${SEFARIM[sIdx].en} · Week ${seferPos}</p>
       ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}
 
       <div class="cards">
@@ -156,12 +141,6 @@ function render() {
             ${readingRow('mikra2', '2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
             ${readingRow('targum', '3', 'Targum / Rashi', targumOn, `Commentary reading${activeFlavor ? `, ${activeFlavor} done` : `, not done`}`)}
           </ol>
-          <hr class="footrule" />
-          <p class="footnote">Choose
-            <button class="preflink${pref === 'onkelos' ? ' active' : ''}" data-pref="onkelos" aria-pressed="${pref === 'onkelos'}">Onkelos</button>
-            or
-            <button class="preflink${pref === 'rashi' ? ' active' : ''}" data-pref="rashi" aria-pressed="${pref === 'rashi'}">Rashi</button>
-            for the final reading</p>
           ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
         </section>
 
@@ -179,8 +158,7 @@ function render() {
       </div>
 
       <section class="card cycle" aria-label="The yearly cycle">
-        <div class="cyclehead">
-          <h2>The yearly cycle</h2>
+        <div class="cyclehead solo">
           <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
         </div>
         <div class="cyclesub">
@@ -195,7 +173,6 @@ function render() {
             return `<button role="listitem" class="dot ${cls}" data-parsha="${r.id}" title="${titleName(r.names)}" aria-label="${titleName(r.names)}, ${st}${r.id === weekly.id ? ', this week' : ''}${r.id === item.id ? ', selected' : ''}">${complete(s) ? `<span class="dotcheck" aria-hidden="true">${check}</span>` : ''}</button>`;
           }).join('')}
         </div>
-        <p class="hint">Current parsha outlined · Hover to see names</p>
         ${showAll ? `
         <hr class="footrule" />
         <div class="alllist">
@@ -247,20 +224,6 @@ function wire(rows, weekly, item, p) {
     const q = state(item.id);
     const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : 'Commentary reading';
     announce(complete(q) ? `${titleName(item.names)} complete` : `${label} ${steps(q)} of 3 done`);
-  });
-  document.querySelectorAll('[data-pref]').forEach(b => b.onclick = () => {
-    const v = b.dataset.pref === 'rashi' ? 'rashi' : 'onkelos';
-    data.commentary = v;
-    // If the commentary step is already done, switch its flavor; otherwise
-    // just remember the preference for the next tap on row 3.
-    const q = { ...p };
-    if (q.onkelos || q.rashi) {
-      q.onkelos = v === 'onkelos';
-      q.rashi = v === 'rashi';
-      setProgress(item.id, q);
-    } else save();
-    render();
-    announce(`Commentary preference: ${v === 'rashi' ? 'Rashi' : 'Onkelos'}`);
   });
   const reset = document.querySelector('#reset-week');
   if (reset) reset.onclick = () => { setProgress(item.id, {}); render(); announce(`${titleName(item.names)} reset`); };
