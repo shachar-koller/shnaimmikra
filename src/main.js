@@ -23,7 +23,7 @@ function applyTheme() {
   const t = data.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = t;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = t === 'dark' ? '#141412' : '#ffffff';
+  if (meta) meta.content = t === 'dark' ? '#141412' : '#f1f1ef';
 }
 function toggleTheme() {
   data.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -34,6 +34,7 @@ function toggleTheme() {
 
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
+let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/weekly sefer
 let showAll = false;
 
 // ── Cloud auth + sync (offline-first; no-ops when env keys absent) ──
@@ -183,8 +184,9 @@ function render() {
   const n = steps(p);
   const done = rows.filter(r => complete(state(r.id))).length;
   const isWeekly = item.id === weekly.id;
-  const sIdx = seferOf(item.id);
-  const seferRows = rows.filter(r => seferOf(r.id) === sIdx);
+  const itemSefer = seferOf(item.id);
+  const viewSefer = activeSefer !== null ? activeSefer : itemSefer;
+  const seferRows = rows.filter(r => seferOf(r.id) === viewSefer);
   const seferDone = seferRows.filter(r => complete(state(r.id))).length;
   const hebYear = hebrewYearOf(item.date);
   const groups = SEFARIM.map((s, i) => ({ ...s, rows: rows.filter(r => seferOf(r.id) === i) })).filter(g => g.rows.length);
@@ -217,8 +219,7 @@ function render() {
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </div>
-      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}
-
+      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}\n
       <div class="cards">
         <section class="card" id="reading" aria-label="Your reading for ${titleName(item.names)}">
           <div class="cardhead"><h2>Your reading</h2><span class="count">${n} of 3</span></div>
@@ -231,7 +232,7 @@ function render() {
           ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
         </section>
 
-        <section class="card" aria-label="Yearly progress">
+        <section class="card yearly" aria-label="Yearly progress">
           <h2 class="kicker">YEARLY PROGRESS</h2>
           <p class="bignum">${done} <span>/ ${rows.length}</span></p>
           <p class="bigsub">Parshiyos completed</p>
@@ -243,11 +244,22 @@ function render() {
       </div>
 
       <section class="card cycle" aria-label="The yearly cycle">
-        <div class="cyclehead solo">
+        <div class="cyclehead">
+          <div class="sefertabs" role="tablist" aria-label="Torah Books">
+            ${SEFARIM.map((s, i) => {
+              const isCurrent = i === viewSefer;
+              const sRows = rows.filter(r => seferOf(r.id) === i);
+              const sDone = sRows.filter(r => complete(state(r.id))).length;
+              const allDone = sDone === sRows.length && sRows.length > 0;
+              return `<button role="tab" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-selected="${isCurrent ? 'true' : 'false'}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
+                <span>${s.en}</span>${allDone ? `<span class="sefertick" aria-hidden="true">${check}</span>` : ''}
+              </button>`;
+            }).join('')}
+          </div>
           <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
         </div>
         <div class="cyclesub">
-          <span class="cycname">${SEFARIM[sIdx].en} · <span lang="he" dir="rtl">${SEFARIM[sIdx].he}</span></span>
+          <span class="cycname">${SEFARIM[viewSefer].en} · <span lang="he" dir="rtl">${SEFARIM[viewSefer].he}</span></span>
           <span class="cyccount">${seferDone}/${seferRows.length}</span>
         </div>
         <div class="dots" role="list">
@@ -259,17 +271,17 @@ function render() {
           }).join('')}
         </div>
         ${showAll ? `
-        <hr class="footrule" />
-        <div class="alllist">
+        <hr class=\"footrule\" />
+        <div class=\"alllist\">
           ${groups.map(g => {
             const gd = g.rows.filter(r => complete(state(r.id))).length;
-            return `<div class="allgroup">
-              <p class="allname">${g.en} <span lang="he" dir="rtl">${g.he}</span> <span class="allcount">${gd}/${g.rows.length}</span></p>
-              <div class="alltiles">
+            return `<div class=\"allgroup\">
+              <p class=\"allname\">${g.en} <span lang=\"he\" dir=\"rtl\">${g.he}</span> <span class=\"allcount\">${gd}/${g.rows.length}</span></p>
+              <div class=\"alltiles\">
                 ${g.rows.map(r => {
                   const s = state(r.id);
                   const cls = complete(s) ? 'done' : r.id === weekly.id ? 'current' : '';
-                  return `<button class="alltile ${cls}${r.id === item.id ? ' selected' : ''}" data-parsha="${r.id}" ${r.id === weekly.id ? 'aria-current="true"' : ''}>${titleName(r.names)}</button>`;
+                  return `<button class=\"alltile ${cls}${r.id === item.id ? ' selected' : ''}\" data-parsha=\"${r.id}\" ${r.id === weekly.id ? 'aria-current=\"true\"' : ''}>${titleName(r.names)}</button>`;
                 }).join('')}
               </div>
             </div>`;
@@ -277,18 +289,23 @@ function render() {
         </div>` : ''}
       </section>
 
-      <footer><span id="syncstate" role="status">${syncLabel()}</span>${storageOK ? '' : '<span class="warn"> Progress could not be saved. Check browser storage.</span>'}</footer>
+      <footer><span id=\"syncstate\" role=\"status\">${syncLabel()}</span>${storageOK ? '' : '<span class=\"warn\"> Progress could not be saved. Check browser storage.</span>'}</footer>
     </main>
   </div>
-  <div id="dialog-root"></div>
-  <div class="sr-only" aria-live="polite" id="announcement"></div>`;
+  <div id=\"dialog-root\"></div>
+  <div class=\"sr-only\" aria-live=\"polite\" id=\"announcement\"></div>`;
 
   wire(rows, weekly, item, p);
 }
 
 function wire(rows, weekly, item, p) {
+  document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
+    activeSefer = Number(b.dataset.seferTab);
+    render();
+  });
   document.querySelectorAll('[data-parsha]').forEach(b => b.onclick = () => {
     chosen = b.dataset.parsha;
+    activeSefer = seferOf(chosen);
     render();
     document.querySelector('#reading').scrollIntoView({ block: 'start' });
   });
@@ -304,7 +321,7 @@ function wire(rows, weekly, item, p) {
     }
     setProgress(item.id, nextState);
     render();
-    const again = document.querySelector(`[data-reading="${k}"]`);
+    const again = document.querySelector(`[data-reading=\"${k}\"]`);
     if (again) again.focus({ preventScroll: true });
     const q = state(item.id);
     const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : 'Commentary reading';
@@ -313,7 +330,7 @@ function wire(rows, weekly, item, p) {
   const reset = document.querySelector('#reset-week');
   if (reset) reset.onclick = () => { setProgress(item.id, {}); render(); announce(`${titleName(item.names)} reset`); };
   const back = document.querySelector('#back-week');
-  if (back) back.onclick = () => { chosen = null; render(); window.scrollTo({ top: 0 }); };
+  if (back) back.onclick = () => { chosen = null; activeSefer = null; render(); window.scrollTo({ top: 0 }); };
   const browse = document.querySelector('#browse');
   if (browse) browse.onclick = () => { showAll = !showAll; render(); };
   document.querySelector('#settings').onclick = settings;
@@ -328,22 +345,22 @@ function avatarInitialInner() {
 }
 
 function avatarInitial() {
-  return `<span aria-hidden="true">${avatarInitialInner()}</span>`;
+  return `<span aria-hidden=\"true\">${avatarInitialInner()}</span>`;
 }
 
 function authDialog() {
   if (!cloudEnabled) {
     modal(`<h2>Sign in</h2>
-      <p class="dialog-note">Cloud sync isn’t configured yet. Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> (see <code>.env.example</code> + <code>supabase/README.md</code>), then reload. Your progress stays saved on this device meanwhile.</p>
-      <button class="primary" id="auth-close">Done</button>`, 'Sign in');
+      <p class=\"dialog-note\">Cloud sync isn’t configured yet. Add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> to <code>.env</code> (see <code>.env.example</code> + <code>supabase/README.md</code>), then reload. Your progress stays saved on this device meanwhile.</p>
+      <button class=\"primary\" id=\"auth-close\">Done</button>`, 'Sign in');
     document.querySelector('#auth-close').onclick = () => { document.querySelector('#dialog-root').innerHTML = ''; };
     return;
   }
   if (user) {
     modal(`<h2>Account</h2>
-      <p class="dialog-note">Signed in as <strong>${user.email || user.id}</strong>.</p>
-      <p class="dialog-note" id="auth-sync-note">${syncLabel()}</p>
-      <button class="primary" id="auth-out">Sign out</button>`, 'Account');
+      <p class=\"dialog-note\">Signed in as <strong>${user.email || user.id}</strong>.</p>
+      <p class=\"dialog-note\" id=\"auth-sync-note\">${syncLabel()}</p>
+      <button class=\"primary\" id=\"auth-out\">Sign out</button>`, 'Account');
     document.querySelector('#auth-out').onclick = async () => {
       try { await signOut(); } catch { /* local sign-out still applies below */ }
       user = null; justMigrated = false; setSync('local');
@@ -354,12 +371,12 @@ function authDialog() {
     return;
   }
   modal(`<h2>Sign in</h2>
-    <div class="giswrap" id="gis-wrap"><div id="gis-btn"></div></div>
-    <button class="gsi-btn" id="auth-google" hidden>
-      <span class="gsi-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span>
+    <div class=\"giswrap\" id=\"gis-wrap\"><div id=\"gis-btn\"></div></div>
+    <button class=\"gsi-btn\" id=\"auth-google\" hidden>
+      <span class=\"gsi-icon\" aria-hidden=\"true\"><svg viewBox=\"0 0 48 48\"><path fill=\"#EA4335\" d=\"M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z\"/><path fill=\"#4285F4\" d=\"M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z\"/><path fill=\"#FBBC05\" d=\"M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z\"/><path fill=\"#34A853\" d=\"M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z\"/></svg></span>
       <span>Continue with Google</span>
     </button>
-    <p class="dialog-note" id="auth-msg" role="status"></p>`, 'Sign in');
+    <p class=\"dialog-note\" id=\"auth-msg\" role=\"status\"></p>`, 'Sign in');
   const authMsg = () => document.querySelector('#auth-msg');
   const useRedirectButton = () => {
     // Native Google button unavailable (no client ID configured or GIS
@@ -420,7 +437,7 @@ async function handleSession(session) {
 
 function modal(html, label = 'Dialog') {
   const prev = document.activeElement;
-  document.querySelector('#dialog-root').innerHTML = `<div class="scrim"></div><div class="dialog" role="dialog" aria-modal="true" aria-label="${label}"><button class="close" aria-label="Close">×</button>${html}</div>`;
+  document.querySelector('#dialog-root').innerHTML = `<div class=\"scrim\"></div><div class=\"dialog\" role=\"dialog\" aria-modal=\"true\" aria-label=\"${label}\"><button class=\"close\" aria-label=\"Close\">×</button>${html}</div>`;
   const box = document.querySelector('.dialog');
   const close = () => { document.querySelector('#dialog-root').innerHTML = ''; if (prev && prev.focus) prev.focus({ preventScroll: true }); };
   box.querySelector('.close').onclick = close;
@@ -435,22 +452,23 @@ function modal(html, label = 'Dialog') {
 function settings() {
   const baseYear = cycleYear(new Date(), data.israel);
   modal(`<h2>Settings</h2>
-    <label class="setting-row">Reading calendar
-      <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
+    <label class=\"setting-row\">Reading calendar
+      <select id=\"location\"><option value=\"false\" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value=\"true\" ${data.israel ? 'selected' : ''}>Israel</option></select>
     </label>
-    <label class="setting-row">Commentary
-      <select id="pref"><option value="onkelos" ${data.commentary !== 'rashi' ? 'selected' : ''}>Onkelos</option><option value="rashi" ${data.commentary === 'rashi' ? 'selected' : ''}>Rashi</option></select>
+    <label class=\"setting-row\">Commentary
+      <select id=\"pref\"><option value=\"onkelos\" ${data.commentary !== 'rashi' ? 'selected' : ''}>Onkelos</option><option value=\"rashi\" ${data.commentary === 'rashi' ? 'selected' : ''}>Rashi</option></select>
     </label>
-    <label class="setting-row">Cycle
-      <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select>
+    <label class=\"setting-row\">Cycle
+      <select id=\"cyear\">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value=\"${y}\">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select>
     </label>
-    <p class="dialog-note">The weekly parsha follows this calendar. Switching calendars keeps your checkmarks, but the “this week” parsha may change. ${cloudEnabled ? (user ? 'Signed in — progress syncs to your account and this device.' : 'Progress is saved on this device. Sign in (top right) to sync across devices.') : 'Progress is saved in this browser, on this device.'}</p>
-    <button class="primary" id="save-settings">Done</button>`, 'Settings');
+    <p class=\"dialog-note\">The weekly parsha follows this calendar. Switching calendars keeps your checkmarks, but the “this week” parsha may change. ${cloudEnabled ? (user ? 'Signed in — progress syncs to your account and this device.' : 'Progress is saved on this device. Sign in (top right) to sync across devices.') : 'Progress is saved in this browser, on this device.'}</p>
+    <button class=\"primary\" id=\"save-settings\">Done</button>`, 'Settings');
   document.querySelector('#save-settings').onclick = () => {
     data.israel = document.querySelector('#location').value === 'true';
     data.commentary = document.querySelector('#pref').value === 'rashi' ? 'rashi' : 'onkelos';
     year = Number(document.querySelector('#cyear').value);
     chosen = null;
+    activeSefer = null;
     save(); render(); document.querySelector('#dialog-root').innerHTML = '';
   };
 }
@@ -466,6 +484,9 @@ window.addEventListener('storage', e => {
       }
     } catch { /* keep current state */ }
   }
+});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (!data.theme) applyTheme();
 });
 applyTheme();
 render();

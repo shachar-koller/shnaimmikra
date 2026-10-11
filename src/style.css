@@ -18,7 +18,7 @@
   --hebrew: 'Frank Ruhl Libre', 'David Libre', Georgia, serif;
   font-family: var(--sans);
   color: var(--ink);
-  background: #fff;
+  background: var(--page);
   color-scheme: light;
 }
 * { box-sizing: border-box; }
@@ -39,7 +39,44 @@
   --barfill: #e6e6e2;
   color-scheme: dark;
 }
-[data-theme="dark"] body { background: #0e0e0d; }
+html {
+  scroll-behavior: smooth;
+  background: var(--page);
+  min-height: 100%;
+  min-height: 100dvh;
+}
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  touch-action: manipulation;
+  min-height: 100%;
+  min-height: 100dvh;
+}
+#app {
+  min-height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 821px) {
+  body { background: #fff; }
+  [data-theme="dark"] body { background: #0e0e0d; }
+}
+
+[data-theme="dark"] html,
+[data-theme="dark"] body {
+  background: var(--page);
+}
+@media (min-width: 821px) {
+  [data-theme="dark"] body {
+    background: #0e0e0d;
+  }
+}
+
 [data-theme="dark"] .iconbtn { color: var(--ink); }
 [data-theme="dark"] .rdot.on { background: #e8e8e3; color: #1a1a18; }
 [data-theme="dark"] .dot:hover { background: var(--hover); border-color: transparent; }
@@ -63,16 +100,8 @@
 [data-theme="dark"] .primary { background: #e8e8e3; color: #161616; }
 [data-theme="dark"] .primary:hover { background: #fff; }
 [data-theme="dark"] footer .warn { color: #d9a648; }
-html { scroll-behavior: smooth; }
-body {
-  margin: 0;
-  background: #fff;
-  color: var(--ink);
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  touch-action: manipulation;
-}
+[data-theme="dark"] .sefertab.active { background: #e8e8e3; color: #161616; }
+
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
 h1, h2, h3, p { margin: 0; }
@@ -89,7 +118,24 @@ h1, h2, h3, p { margin: 0; }
   border-radius: 26px;
   padding: 26px 28px 30px;
 }
-@media (max-width: 820px) { .page { margin: 0; border-radius: 0; padding: 20px 16px 26px; } body { background: var(--page); } }
+@media (max-width: 820px) {
+  .page {
+    margin: 0;
+    border-radius: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+  }
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  footer {
+    margin-top: auto;
+  }
+}
 
 /* Header */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
@@ -112,7 +158,7 @@ h1, h2, h3, p { margin: 0; }
 
 /* Cards */
 .cards { display: grid; grid-template-columns: 1.05fr 1fr; gap: 16px; margin-top: 22px; align-items: stretch; }
-@media (max-width: 640px) { .cards { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 20px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); }
 .cardhead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .cardhead h2 { font-size: 25px; font-weight: 700; letter-spacing: -0.015em; }
@@ -133,21 +179,29 @@ h1, h2, h3, p { margin: 0; }
 .resetlink { font-size: 13.5px; font-weight: 600; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 
 /* Yearly card */
+.card.yearly { display: flex; flex-direction: column; }
 .kicker { font-size: 16px; font-weight: 650; letter-spacing: 0.05em; color: var(--muted); }
 .bignum { margin-top: 12px; font-size: 52px; line-height: 1; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .bignum span { font-size: 24px; font-weight: 550; color: var(--muted); }
 .bigsub { margin-top: 6px; font-size: 18px; color: var(--muted); }
-.yearspace { min-height: 96px; }
-@media (max-width: 640px) { .yearspace { min-height: 28px; } }
+.yearspace { min-height: 96px; flex: 1; }
+@media (max-width: 640px) { .yearspace { min-height: 14px; } }
 .nextlabel { font-size: 18px; color: var(--muted); }
 .nextrow { margin-top: 2px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .nextcount { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; text-align: start; }
 
 /* Cycle */
 .cycle { margin-top: 16px; }
-.cyclehead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.cyclehead.solo { justify-content: flex-end; }
-.browselink { font-size: 18px; color: var(--muted); font-weight: 500; border-radius: 6px; white-space: nowrap; }
+.cyclehead { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sefertabs-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; flex-wrap: wrap; }
+.sefertabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px 0; max-width: 100%; }
+.sefertabs::-webkit-scrollbar { display: none; }
+.sefertab { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 999px; background: var(--tilebg); color: var(--muted); font-size: 13.5px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; transition: background 0.15s ease, color 0.15s ease; flex-shrink: 0; }
+.sefertab:hover { background: var(--hover); color: var(--ink); }
+.sefertab.active { background: var(--ink); color: #fff; }
+.sefertick { display: inline-grid; place-items: center; color: currentColor; }
+.sefertick svg { width: 12px; height: 12px; }
+.browselink { font-size: 16px; color: var(--muted); font-weight: 500; border-radius: 6px; white-space: nowrap; margin-inline-start: auto; }
 .browselink:hover { color: var(--ink); }
 .cyclesub { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 14px; }
 .cycname { font-size: 20px; font-weight: 700; }
@@ -183,7 +237,7 @@ h1, h2, h3, p { margin: 0; }
 .alltile.current:not(.selected):not(.done) { background: #f6f6f4; border-color: transparent; }
 .alltile.current:not(.selected):not(.done)::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; margin-inline-start: 8px; vertical-align: middle; }
 
-footer { margin-top: 18px; font-size: 13px; color: var(--faint); min-height: 18px; }
+footer { margin-top: 18px; font-size: 13px; color: var(--faint); min-height: 18px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
 footer .warn { color: #9a5b00; }
 
 /* Dialog */
@@ -206,8 +260,6 @@ footer .warn { color: #9a5b00; }
 [data-theme="dark"] .signinbtn { background: #e8e8e3; color: #161616; }
 .avatarbtn { width: 40px; height: 40px; border-radius: 50%; background: #161616; color: #fff; font-size: 17px; font-weight: 700; display: inline-grid; place-items: center; flex-shrink: 0; }
 [data-theme="dark"] .avatarbtn { background: #e8e8e3; color: #161616; }
-/* Standard "Sign in with Google" button (Google Identity branding):
-   deliberately NOT themed like the app — white pill, gray border, G logo. */
 .gsi-btn {
   display: flex;
   align-items: center;
@@ -230,24 +282,23 @@ footer .warn { color: #9a5b00; }
 .gsi-btn:hover { background: #f2f2f2; }
 .gsi-btn:active { background: #e6e6e6; }
 .gsi-btn[hidden] { display: none; }
-/* Native Google button slot (Google Identity Services renders its own
-   branded button here; it shows YOUR app on the consent screen). */
+[data-theme="dark"] .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
+[data-theme="dark"] .gsi-btn:hover { background: #1f1f20; }
+[data-theme="dark"] .gsi-btn:active { background: #2a2a2b; }
 .giswrap { margin-top: 14px; min-height: 44px; display: flex; justify-content: center; }
 .giswrap:empty { display: none; }
 #gis-btn { width: 100%; display: flex; justify-content: center; }
 .gsi-icon { display: inline-grid; place-items: center; flex-shrink: 0; }
 .gsi-icon svg { width: 20px; height: 20px; display: block; }
-[data-theme="dark"] .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
-[data-theme="dark"] .gsi-btn:hover { background: #1f1f20; }
-[data-theme="dark"] .gsi-btn:active { background: #2a2a2b; }
 .dialog-note { margin-top: 10px; }
 .dialog code { font-size: 12.5px; }
-footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
 
-/* ---------- Compact mobile pass: keep the mock's 2-up cards + full-width cycle ---------- */
+/* ---------- Compact mobile pass: keep 2-up cards + dynamic vertical scaling ---------- */
 @media (max-width: 640px) {
-  .page { padding: 16px 12px 22px; }
-  .topbar { padding-bottom: 14px; }
+  .page {
+    padding: calc(14px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));
+  }
+  .topbar { padding-bottom: 12px; }
   .brand { font-size: 18px; }
   .brandicon svg { width: 22px; height: 22px; }
   .topright { gap: 6px; }
@@ -277,7 +328,8 @@ footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wr
   .yearspace { min-height: 14px; }
   .nextlabel { font-size: 12.5px; }
   .nextcount { font-size: 15px; }
-  .cyclehead { flex-wrap: nowrap; }
+  .cyclehead { flex-wrap: nowrap; gap: 6px; }
+  .sefertab { font-size: 12px; padding: 4px 8px; }
   .browselink { font-size: 12.5px; white-space: nowrap; }
   .cyclesub { margin-top: 10px; }
   .cycname { font-size: 15px; }
@@ -286,13 +338,89 @@ footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wr
   .dot { width: 34px; height: 34px; border-radius: 10px; }
   .alltile { font-size: 13px; min-height: 38px; padding: 7px 10px; }
 }
+
+/* Standard modern phones (height >= 720px): expand proportions cleanly to fill space */
+@media (max-width: 640px) and (min-height: 720px) {
+  .page {
+    padding: calc(16px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) calc(14px + env(safe-area-inset-left, 0px));
+  }
+  .topbar { padding-bottom: 14px; }
+  .brand { font-size: 19px; }
+  .titlerow { margin-top: 18px; gap: 12px; }
+  .titlerow h1 { font-size: 33px; }
+  .he { font-size: 33px; }
+  .cards { margin-top: 16px; gap: 12px; }
+  .card { padding: 16px 14px 14px; border-radius: 18px; }
+  .cardhead h2 { font-size: 18px; }
+  .count { font-size: 13.5px; }
+  .bar { margin-top: 11px; height: 5.5px; }
+  .readrow { min-height: 52px; padding: 7px 2px; gap: 10px; }
+  .rnum { width: 32px; height: 32px; font-size: 14.5px; }
+  .rlabel { font-size: 15px; }
+  .rdot { width: 25px; height: 25px; }
+  .rdot svg { width: 14px; height: 14px; }
+  .bignum { font-size: 36px; margin-top: 8px; }
+  .bignum span { font-size: 18px; }
+  .bigsub { font-size: 13px; }
+  .yearspace { min-height: 20px; }
+  .nextlabel { font-size: 13px; }
+  .nextcount { font-size: 16.5px; }
+  .cycle { margin-top: 16px; }
+  .sefertab { font-size: 12.5px; padding: 5px 9px; }
+  .cyclesub { margin-top: 12px; }
+  .cycname { font-size: 16px; }
+  .cyccount { font-size: 15px; }
+  .dots { gap: 8px; margin-top: 13px; }
+  .dot { width: 38px; height: 38px; border-radius: 11px; }
+  .dotcheck svg { width: 16px; height: 16px; }
+  footer { margin-top: auto; padding-top: 16px; }
+}
+
+/* Tall modern phones (height >= 840px, e.g. iPhone 12/13/14/15/16 Pro & Max, Pixel Pro): dynamic expansion */
+@media (max-width: 640px) and (min-height: 840px) {
+  .page {
+    padding: calc(18px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) calc(22px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+  }
+  .topbar { padding-bottom: 16px; }
+  .brand { font-size: 20px; }
+  .titlerow { margin-top: 22px; gap: 14px; }
+  .titlerow h1 { font-size: 36px; }
+  .he { font-size: 36px; }
+  .cards { margin-top: 18px; gap: 14px; }
+  .card { padding: 18px 16px 16px; border-radius: 20px; }
+  .cardhead h2 { font-size: 19.5px; }
+  .count { font-size: 14.5px; }
+  .bar { margin-top: 12px; height: 6px; }
+  .readrow { min-height: 58px; padding: 9px 3px; gap: 11px; }
+  .rnum { width: 35px; height: 35px; font-size: 15.5px; }
+  .rlabel { font-size: 16px; }
+  .rdot { width: 27px; height: 27px; }
+  .rdot svg { width: 15px; height: 15px; }
+  .bignum { font-size: 40px; margin-top: 10px; }
+  .bignum span { font-size: 20px; }
+  .bigsub { font-size: 14px; }
+  .yearspace { min-height: 28px; }
+  .nextlabel { font-size: 14px; }
+  .nextcount { font-size: 18px; }
+  .cycle { margin-top: 18px; }
+  .sefertab { font-size: 13px; padding: 6px 11px; }
+  .cyclesub { margin-top: 14px; }
+  .cycname { font-size: 17px; }
+  .cyccount { font-size: 16px; }
+  .dots { gap: 9px; margin-top: 14px; }
+  .dot { width: 42px; height: 42px; border-radius: 12px; }
+  .dotcheck svg { width: 17px; height: 17px; }
+  footer { margin-top: auto; padding-top: 20px; }
+}
+
 @media (max-width: 360px) {
-  .titlerow h1 { font-size: 26px; }
-  .he { font-size: 26px; }
-  .cardhead h2 { font-size: 15px; }
-  .rlabel { font-size: 12.5px; }
+  .titlerow h1 { font-size: 25px; }
+  .he { font-size: 25px; }
+  .cardhead h2 { font-size: 14.5px; }
+  .rlabel { font-size: 12px; }
   .bignum { font-size: 28px; }
   .nextcount { font-size: 14px; }
+  .sefertab { font-size: 11px; padding: 3px 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
