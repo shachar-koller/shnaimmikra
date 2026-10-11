@@ -11,7 +11,7 @@ for (const width of [393, 1280]) {
 
     test('parsha selection keeps the clicked row in place and focused', async ({ page }) => {
       // Initially current parsha is selected with grey background.
-      await expect(page.locator('.parsharow.selected')).toHaveCSS('background-color', 'rgb(236, 236, 232)');
+      await expect(page.locator('.parsharow.selected')).toHaveCSS('background-color', 'rgb(231, 231, 231)');
       // Include a week with progress and a heading that wraps on phones.
       await page.locator('[data-reading="mikra1"]').click();
       for (const id of ['Chayei Sara', 'Bereshit', 'Noach']) {
@@ -20,7 +20,7 @@ for (const width of [393, 1280]) {
         const before = await row.boundingBox();
         await row.click();
         await expect(row).toHaveAttribute('aria-pressed', 'true');
-        await expect(row).toHaveCSS('background-color', 'rgb(236, 236, 232)');
+        await expect(row).toHaveCSS('background-color', 'rgb(231, 231, 231)');
         await expect(row).toBeFocused();
         await expect(row).toHaveCSS('outline-style', 'none');
         await expect(row.locator('.parshanum')).toHaveCSS('box-shadow', 'none');

@@ -11,21 +11,51 @@ import {
   formatGregorianDate,
 } from './model.js';
 import { cloudEnabled, supabase, signInWithGoogle, signOut, getSession, onAuthChange, googleNativeEnabled, renderGoogleButton } from './auth.js';
-import { mergeState, pullCloud, pushAllProgress, pushProfile, createPushQueue } from './sync.js';
+import { mergeState, pullCloud, pullAllProgress, deleteAllProgress, pushAllProgress, pushProfile, createPushQueue } from './sync.js';
+import { peirushName, progressText, splitDoubleProgress } from './progress.js';
+
+const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[char]));
 
 const KEY = 'shnaim-mikra-v1';
-let data = { progress: {}, israel: false, commentary: 'onkelos' };
+const themes = [
+  { id: 'grayscale', label: 'Grayscale', color: '#f5f5f5' },
+  { id: 'dark-grayscale', label: 'Dark Grayscale', color: '#171717' },
+  { id: 'forest', label: 'Forest', color: '#faf9f6' },
+  { id: 'forest-dark', label: 'Forest Dark', color: '#151817' },
+];
+const validTheme = theme => {
+  const id = { light: 'grayscale', dark: 'dark-grayscale' }[theme] || theme;
+  return themes.some(theme => theme.id === id) ? id : 'grayscale';
+};
+let data = { progress: {}, israel: false, commentary: 'onkelos', theme: 'grayscale' };
 let storageOK = true;
 try {
   const raw = JSON.parse(localStorage.getItem(KEY));
   if (raw && typeof raw.progress === 'object' && raw.progress !== null) {
     data = {
-      progress: raw.progress,
+      progress: splitDoubleProgress(raw.progress),
       israel: raw.israel === true,
       commentary: raw.commentary === 'rashi' ? 'rashi' : 'onkelos',
+      theme: validTheme(raw.theme),
+      ...(raw.peirushName ? { peirushName: peirushName(raw.peirushName) } : {}),
     };
+    if (Object.keys(raw.progress).some(key => !Object.hasOwn(data.progress, key))) {
+      localStorage.setItem(KEY, JSON.stringify(data));
+    }
   }
 } catch { storageOK = false; }
+
+function applyTheme() {
+  document.documentElement.dataset.theme = data.theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',
+    themes.find(theme => theme.id === data.theme).color);
+}
+applyTheme();
+
+const requestedCheckboxLayout = new URLSearchParams(location.search).get('checkboxes');
+document.querySelector('#app').dataset.checkboxLayout = requestedCheckboxLayout === 'left' ? 'left' : 'right';
 
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
@@ -36,6 +66,7 @@ let user = null;
 let syncStatus = 'local'; // local | syncing | ok | error | migrated
 let justMigrated = false;
 const pushQueue = createPushQueue();
+let sessionSync = Promise.resolve();
 const setSync = s => {
   syncStatus = s;
 };
@@ -154,10 +185,14 @@ function announce(msg) {
   if (el) el.textContent = msg;
 }
 
+function refreshUnlessDialogOpen() {
+  if (!document.querySelector('.dialog')) render();
+}
+
 function readingControl(key, label, on, ariaLabel, disabled = false) {
-  return `<button type="button" class="readrow commentarychoice${on ? ' on' : ''}${disabled ? ' unavailable' : ''}" data-reading-row="${key}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
-    ${on ? `<span class="commentarycheck" aria-hidden="true">${check}</span>` : ''}
+  return `<button type="button" class="readrow readingchoice commentarychoice${on ? ' on' : ''}${disabled ? ' unavailable' : ''}" data-reading-row="${key}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
     <span class="rlabel">${label}</span>
+    <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
   </button>`;
 }
 
@@ -165,8 +200,8 @@ function readingRow(key, label, on, ariaLabel) {
   return `<li>
     <div class="readingstep" data-reading-row="${key}">
       <button type="button" class="readrow readingchoice${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}">
-        <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
         <span class="rlabel">${label}</span>
+        <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
       </button>
     </div>
   </li>`;
@@ -175,10 +210,13 @@ function readingRow(key, label, on, ariaLabel) {
 function render() {
   const rows = all();
   const weekly = currentParsha(rows);
+  const weeklyRows = rows.filter(r => r.date.getTime() === weekly.date.getTime());
+  const weeklyNames = weeklyRows.flatMap(r => r.names);
+  const weeklyTotal = weeklyRows.length * 3;
   const item = rows.find(r => r.id === chosen) || weekly;
   const p = state(item.id);
   const done = rows.filter(r => complete(state(r.id))).length;
-  const weeklySteps = steps(state(weekly.id));
+  const weeklySteps = weeklyRows.reduce((sum, r) => sum + steps(state(r.id)), 0);
   const itemSefer = seferOf(item.id);
   const viewSefer = activeSefer !== null ? activeSefer : itemSefer;
   const seferRows = rows.filter(r => seferOf(r.id) === viewSefer);
@@ -214,8 +252,8 @@ function render() {
             ${readingRow('mikra2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
             <li class="commentaryrow">
               <div class="commentaryoptions" role="group" aria-label="Commentary">
-                ${readingControl('rashi', 'Rashi', !!p.rashi, `Rashi commentary, ${p.rashi ? 'done' : 'not done'}`, !!p.onkelos && !p.rashi)}
-                ${readingControl('onkelos', 'Targum', !!p.onkelos, `Targum (Onkelos), ${p.onkelos ? 'done' : 'not done'}`, !!p.rashi && !p.onkelos)}
+                ${readingControl('rashi', escapeHtml(peirushName(data.peirushName)), !!p.rashi, `${escapeHtml(peirushName(data.peirushName))} commentary, ${p.rashi ? 'done' : 'not done'}`, !!p.onkelos && !p.rashi)}
+                ${readingControl('onkelos', 'Onkelos', !!p.onkelos, `Onkelos, ${p.onkelos ? 'done' : 'not done'}`, !!p.rashi && !p.onkelos)}
               </div>
             </li>
           </ol>
@@ -224,9 +262,9 @@ function render() {
         <div class="sidecol">
           <section class="card yearly" aria-label="Yearly progress">
             <div class="weeklyprogress" aria-label="This week's progress">
-              <div class="progressheading"><h2 class="kicker">This week</h2><p class="progressvalue">${weeklySteps}<span> / 3</span></p></div>
-              <div class="weeksegments" role="img" aria-label="${weeklySteps} of 3 readings completed for ${titleName(weekly.names)}">${[1, 2, 3].map(step => `<span class="${weeklySteps >= step ? 'filled' : ''}"></span>`).join('')}</div>
-              <p class="bigsub">${titleName(weekly.names)} readings</p>
+              <div class="progressheading"><h2 class="kicker">This week</h2><p class="progressvalue">${weeklySteps}<span> / ${weeklyTotal}</span></p></div>
+              <div class="weeksegments" style="--weekly-steps:${weeklyTotal}" role="img" aria-label="${weeklySteps} of ${weeklyTotal} readings completed for ${titleName(weeklyNames)}">${Array.from({ length: weeklyTotal }, (_, i) => `<span class="${weeklySteps > i ? 'filled' : ''}"></span>`).join('')}</div>
+              <p class="bigsub">${titleName(weeklyNames)} readings</p>
             </div>
             <div class="yearprogress">
               <div class="progressheading"><h2 class="kicker">This year</h2><p class="progressvalue bignum">${done}<span> / ${rows.length}</span></p></div>
@@ -264,7 +302,7 @@ function render() {
           ${seferRows.map((r, i) => {
             const s = state(r.id);
             const isDone = complete(s);
-            const isCur = r.id === weekly.id;
+            const isCur = weeklyRows.some(w => w.id === r.id);
             const isSel = r.id === item.id;
             const numSteps = steps(s);
             const isPartial = numSteps > 0 && !isDone;
@@ -327,7 +365,7 @@ function wire(rows, weekly, item, p) {
       }
     }
     const q = state(item.id);
-    const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : k === 'rashi' ? 'Rashi' : 'Targum';
+    const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : k === 'rashi' ? peirushName(data.peirushName) : 'Onkelos';
     announce(`${label} ${q[k] ? 'done' : 'not done'}. ${titleName(item.names)}${complete(q) ? ' complete' : `, ${steps(q)} of 3 done`}`);
   };
 
@@ -369,17 +407,7 @@ function authDialog() {
     return;
   }
   if (user) {
-    modal(`<h2>Account</h2>
-      <p class="dialog-note">Signed in as <strong>${user.email || user.id}</strong>.</p>
-      <p class="dialog-note" id="auth-sync-note">${syncLabel()}</p>
-      <button class="primary" id="auth-out">Sign out</button>`, 'Account');
-    document.querySelector('#auth-out').onclick = async () => {
-      try { await signOut(); } catch { /* local sign-out still applies below */ }
-      user = null; justMigrated = false; setSync('local');
-      document.querySelector('#dialog-root').innerHTML = '';
-      render();
-      announce('Signed out. Progress stays on this device.');
-    };
+    settings();
     return;
   }
   modal(`<h2>Sign in</h2>
@@ -422,61 +450,198 @@ async function handleSession(session) {
   user = nextUser;
   if (!user || !cloudEnabled) {
     if (!user) { justMigrated = false; setSync('local'); }
-    if (changed) render();
+    if (changed) refreshUnlessDialogOpen();
     return;
   }
   if (!changed) return;
   setSync('syncing');
   announce('Signed in. Syncing your progress.');
   try {
-    const { profile, rows } = await pullCloud(user.id, year);
+    const userId = user.id;
+    const { profile, rows } = await pullCloud(userId);
+    if (user?.id !== userId) return;
     const hadLocal = Object.keys(data.progress || {}).length > 0;
     data = mergeState(data, rows, profile);
     justMigrated = hadLocal;
-    save(); render();
+    save(); refreshUnlessDialogOpen();
     // Push merged union back up so other devices converge.
-    await pushAllProgress(user.id, data.progress);
+    await pushAllProgress(user.id, data.progress, rows);
     await pushProfile(user.id, data);
     setSync('ok');
     announce(justMigrated ? 'Signed in. Your device progress was merged.' : 'Signed in. Progress synced.');
   } catch {
     setSync('error');
-    render();
+    refreshUnlessDialogOpen();
   }
 }
 
+let closeModal = () => {};
 function modal(html, label = 'Dialog') {
+  closeModal();
   const prev = document.activeElement;
   document.querySelector('#dialog-root').innerHTML = `<div class="scrim"></div><div class="dialog" role="dialog" aria-modal="true" aria-label="${label}"><button class="close" aria-label="Close">×</button>${html}</div>`;
   const box = document.querySelector('.dialog');
-  const close = () => { document.querySelector('#dialog-root').innerHTML = ''; if (prev && prev.focus) prev.focus({ preventScroll: true }); };
+  const events = new AbortController();
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    if (box.getAttribute('aria-busy') === 'true') return;
+    closed = true;
+    events.abort();
+    document.querySelector('#dialog-root').innerHTML = '';
+    if (label === 'Settings') render();
+    if (prev?.isConnected) prev.focus({ preventScroll: true });
+    else document.querySelector('#settings')?.focus({ preventScroll: true });
+  };
+  closeModal = close;
   box.querySelector('.close').onclick = close;
   document.querySelector('.scrim').onclick = close;
-  document.addEventListener('keydown', function esc(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
-  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') close();
+    if (e.key === 'Tab') {
+      const controls = [...box.querySelectorAll('button:not(:disabled):not([hidden]), select, a[href], input')];
+      const first = controls[0], last = controls.at(-1);
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
+  }, { signal: events.signal });
   const first = box.querySelector('button.primary') || box.querySelector('.gsi-btn:not([hidden])') || box.querySelector('.close');
   if (first) first.focus({ preventScroll: true });
 }
 
 function settings() {
   const baseYear = cycleYear(new Date(), data.israel);
-  modal(`<h2>Settings</h2>
+  modal(`<div class="settings-header"><h2>Settings</h2></div>
+    <div class="settings-body">
+    <section class="settings-section" aria-label="Appearance">
+    <div class="settings-group appearance-group">
+    <div class="theme-options" role="group" aria-label="Theme">
+      ${themes.map(theme => `<button type="button" class="theme-option" data-theme-choice="${theme.id}" aria-pressed="${data.theme === theme.id}"><span class="theme-swatch swatch-${theme.id}" aria-hidden="true"></span>${theme.label}</button>`).join('')}
+    </div>
+    </div>
+    </section>
+    <section class="settings-section" aria-label="Reading">
+    <div class="settings-group">
+    <label class="setting-row">Peirush
+      <input id="peirush-name" type="text" maxlength="80" placeholder="Rashi" autocomplete="off" dir="auto">
+    </label>
     <label class="setting-row">Reading calendar
       <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
     </label>
     <label class="setting-row">Cycle
       <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select>
     </label>
-    <p class="dialog-note">The weekly parsha follows this calendar. Switching calendars keeps your checkmarks, but the “this week” parsha may change. ${cloudEnabled ? (user ? 'Signed in — progress syncs to your account and this device.' : 'Progress is saved on this device. Sign in to sync across devices.') : 'Progress is saved in this browser, on this device.'}</p>
-    <button class="primary" id="save-settings">Done</button>`, 'Settings');
-  document.querySelector('#save-settings').onclick = () => {
+    </div>
+    </section>
+    <section class="settings-section" aria-label="Progress">
+    <div class="settings-group">
+    <button class="settings-action" id="export-progress">Export all progress <svg class="settings-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg></button>
+    <button class="settings-action danger" id="delete-progress">Delete all progress</button>
+    </div>
+    </section>
+    <section class="settings-section" aria-label="Account">
+    ${user ? '<div class="settings-group"><div class="settings-account-row"><span class="settings-avatar" aria-hidden="true"></span><div><span class="settings-email"></span><span class="settings-account-caption">Signed in</span></div></div><button class="settings-action danger" id="settings-signout">Sign out</button></div>' : cloudEnabled ? '<div class="settings-group"><button class="settings-action" id="settings-signin">Sign in with Google <span class="settings-chevron" aria-hidden="true">›</span></button></div>' : ''}
+    </section>
+    <p class="dialog-note" id="settings-status" role="status" aria-live="polite"></p>
+    </div>
+    <button class="primary settings-done" id="save-settings">Done</button>`, 'Settings');
+  document.querySelector('.dialog').classList.add('settings-dialog');
+  const peirushInput = document.querySelector('#peirush-name');
+  peirushInput.value = peirushName(data.peirushName);
+  peirushInput.oninput = () => {
+    const name = peirushName(peirushInput.value);
+    if (name === 'Rashi') delete data.peirushName;
+    else data.peirushName = name;
+    save();
+    document.querySelector('#settings-status').textContent = storageOK ? '' : 'Peirush changed, but browser storage could not save it.';
+  };
+  if (user) {
+    document.querySelector('.settings-email').textContent = user.email || user.id;
+    document.querySelector('.settings-avatar').textContent = avatarInitialInner();
+  }
+  document.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
+    data.theme = button.dataset.themeChoice;
+    applyTheme(); save();
+    document.querySelectorAll('[data-theme-choice]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+    document.querySelector('#settings-status').textContent = storageOK ? '' : 'Theme changed, but browser storage could not save it.';
+  });
+  const updateReadingSettings = () => {
     data.israel = document.querySelector('#location').value === 'true';
     year = Number(document.querySelector('#cyear').value);
-    chosen = null;
-    activeSefer = null;
-    save(); render(); document.querySelector('#dialog-root').innerHTML = '';
+    chosen = null; activeSefer = null;
+    save();
   };
+  document.querySelector('#location').onchange = updateReadingSettings;
+  document.querySelector('#cyear').onchange = updateReadingSettings;
+  document.querySelector('#export-progress').onclick = () => exportProgress();
+  document.querySelector('#delete-progress').onclick = confirmDeleteProgress;
+  document.querySelector('#settings-signin')?.addEventListener('click', authDialog);
+  document.querySelector('#settings-signout')?.addEventListener('click', () => runSettingsAction('Signing out…', async () => {
+    await sessionSync;
+    await pushQueue.flush();
+    await signOut();
+    user = null; justMigrated = false; setSync('local');
+    document.querySelector('.dialog')?.removeAttribute('aria-busy');
+    closeModal(); render(); document.querySelector('#settings').focus({ preventScroll: true });
+    announce('Signed out. Progress stays on this device.');
+  }, 'Could not sign out. Please try again.'));
+  document.querySelector('#save-settings').onclick = () => {
+    closeModal();
+  };
+}
+
+async function runSettingsAction(message, action, failure) {
+  const box = document.querySelector('.dialog');
+  const status = box.querySelector('[role="status"]');
+  const controls = [...box.querySelectorAll('button, select, input')];
+  box.setAttribute('aria-busy', 'true');
+  controls.forEach(control => { control.disabled = true; });
+  status.textContent = message;
+  try { await action(); }
+  catch { status.textContent = failure; }
+  finally {
+    box.removeAttribute('aria-busy');
+    controls.forEach(control => { control.disabled = false; });
+  }
+}
+
+function exportProgress() {
+  return runSettingsAction('Preparing your export…', async () => {
+    await sessionSync;
+    let exported = data;
+    if (user) exported = mergeState(data, await pullAllProgress(user.id));
+    const now = new Date();
+    const blob = new Blob([progressText(exported, fixName, now)], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shnayim-mikra-progress-${now.toISOString().slice(0, 10)}.txt`;
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    document.querySelector('#settings-status').textContent = 'Your progress text file is ready.';
+  }, 'Could not export all progress. Check your connection and try again.');
+}
+
+function confirmDeleteProgress() {
+  modal(`<h2>Delete all progress?</h2>
+    <p class="dialog-note">This clears every reading checkmark from every cycle${user ? ' on this device and in your account' : ' on this device'}. Your settings and account stay. This cannot be undone.</p>
+    <p class="dialog-note">You can export a copy from Settings before deleting.</p>
+    <p class="dialog-note" id="delete-status" role="status"></p>
+    <div class="confirm-actions"><button class="secondary" id="cancel-delete">Cancel</button><button class="danger-button" id="confirm-delete">Delete all progress</button></div>`, 'Delete all progress?');
+  document.querySelector('#cancel-delete').focus();
+  document.querySelector('#cancel-delete').onclick = settings;
+  document.querySelector('#confirm-delete').onclick = () => runSettingsAction('Deleting progress…', async () => {
+    await sessionSync;
+    await pushQueue.cancelProgress();
+    if (user) await deleteAllProgress(user.id);
+    const cleared = { ...data, progress: {} };
+    // Do not report success unless the reset survives a reload.
+    localStorage.setItem(KEY, JSON.stringify(cleared));
+    data = cleared; storageOK = true;
+    document.querySelector('.dialog').removeAttribute('aria-busy');
+    closeModal(); render(); settings();
+    document.querySelector('#settings-status').textContent = 'All progress deleted. Your settings are saved.';
+  }, 'Could not delete all progress. Check your connection and browser storage, then try again.');
 }
 
 window.addEventListener('storage', e => {
@@ -484,7 +649,8 @@ window.addEventListener('storage', e => {
     try {
       const d = JSON.parse(e.newValue);
       if (d?.progress) {
-        data = { progress: d.progress, israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos' };
+        data = { progress: splitDoubleProgress(d.progress), israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos', theme: validTheme(d.theme), ...(d.peirushName ? { peirushName: peirushName(d.peirushName) } : {}) };
+        applyTheme();
         render();
       }
     } catch { /* keep current state */ }
@@ -492,7 +658,10 @@ window.addEventListener('storage', e => {
 });
 render();
 if (cloudEnabled && supabase) {
-  getSession().then(s => handleSession(s)).catch(() => {});
-  onAuthChange(session => handleSession(session));
+  sessionSync = getSession().then(handleSession).catch(() => {});
+  onAuthChange(session => {
+    // Defer Supabase calls out of its auth callback and serialize initial events.
+    setTimeout(() => { sessionSync = sessionSync.then(() => handleSession(session)); }, 0);
+  });
 }
 if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js').catch(() => {});
