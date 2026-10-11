@@ -139,7 +139,7 @@ function render() {
           <ol class="reads">
             ${readingRow('mikra1', '1', 'Mikra I', !!p.mikra1, `First reading of the parsha${p.mikra1 ? ', done' : ''}`)}
             ${readingRow('mikra2', '2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
-            ${readingRow('targum', '3', 'Targum / Rashi', targumOn, `Commentary reading${activeFlavor ? `, ${activeFlavor} done` : `, not done`}`)}
+            ${readingRow('targum', '3', 'Targum', targumOn, `Commentary reading${activeFlavor ? `, ${activeFlavor} done` : `, not done`}`)}
           </ol>
           ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
         </section>
