@@ -1,5 +1,5 @@
 import './style.css';
-import { HDate, Locale } from '@hebcal/core';
+import { Locale } from '@hebcal/core';
 import {
   complete,
   steps,
@@ -30,7 +30,6 @@ try {
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
 let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/weekly sefer
-let showAll = false;
 
 // ── Cloud auth + sync (offline-first; no-ops when env keys absent) ──
 let user = null;
@@ -39,8 +38,6 @@ let justMigrated = false;
 const pushQueue = createPushQueue();
 const setSync = s => {
   syncStatus = s;
-  const el = document.querySelector('#syncstate');
-  if (el) el.textContent = syncLabel();
 };
 function syncLabel() {
   if (!cloudEnabled) return '';
@@ -51,7 +48,6 @@ function syncLabel() {
 }
 
 const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
-const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 5.5C10 4.5 7.5 4 4.5 4v15c3 0 5.5.5 7.5 1.5 2-1 4.5-1.5 7.5-1.5V4c-3 0-5.5.5-7.5 1.5z"/><path d="M12 5.5v15"/></svg>';
 const slidersIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>';
 
 // Sefer grouping. Keys are exact Hebcal English names (full id first,
@@ -136,7 +132,8 @@ const fixName = n => ASHKENAZI[n] || n.split('-').map(part => ASHKENAZI[part] ||
 const displayNames = names => names.map(fixName);
 const titleName = names => displayNames(names).join(' – ');
 const heroName = names => `Parshas ${names.length > 1 ? displayNames(names).join('–') : fixName(names[0])}`;
-const hebrewName = names => `פרשת ${names.map(n => Locale.gettext(n, 'he')).join('־')}`;
+const hebrewParshaName = names => names.map(n => Locale.gettext(n, 'he-x-NoNikud').replaceAll('־', ' ')).join('־');
+const hebrewName = names => `פרשת ${hebrewParshaName(names)}`;
 
 const all = () => schedule(year, data.israel);
 const state = id => data.progress[`${year}:${id}`] || {};
@@ -151,23 +148,30 @@ function setProgress(id, next) {
   save();
   if (cloudEnabled && user) pushQueue.progress(user.id, year, id, next, s => setSync(s === 'ok' ? 'ok' : s));
 }
-const hebrewYearOf = date => { try { return new HDate(date).getFullYear(); } catch { return null; } };
 
 function announce(msg) {
   const el = document.querySelector('#announcement');
   if (el) el.textContent = msg;
 }
 
-function readingRow(key, num, label, on, ariaLabel) {
-  return `<li>
-    <div class="readrow" data-reading-row="${key}">
-      <span class="rnum" aria-hidden="true">${num}</span>
+function readingControl(key, label, on, ariaLabel, num = null, disabled = false) {
+  if (!num) {
+    return `<button type="button" class="readrow commentarychoice${on ? ' on' : ''}${disabled ? ' unavailable' : ''}" data-reading-row="${key}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
+      ${on ? `<span class="commentarycheck" aria-hidden="true">${check}</span>` : ''}
       <span class="rlabel">${label}</span>
-      <button type="button" class="rcheck${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${ariaLabel}">
+    </button>`;
+  }
+  return `<div class="readrow${disabled ? ' unavailable' : ''}" data-reading-row="${key}">
+      ${num ? `<span class="rnum" aria-hidden="true">${num}</span>` : ''}
+      <span class="rlabel">${label}</span>
+      <button type="button" class="rcheck${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
         ${on ? check : ''}
       </button>
-    </div>
-  </li>`;
+    </div>`;
+}
+
+function readingRow(key, num, label, on, ariaLabel) {
+  return `<li>${readingControl(key, label, on, ariaLabel, num)}</li>`;
 }
 
 function render() {
@@ -177,15 +181,10 @@ function render() {
   const p = state(item.id);
   const n = steps(p);
   const done = rows.filter(r => complete(state(r.id))).length;
-  const isWeekly = item.id === weekly.id;
   const itemSefer = seferOf(item.id);
   const viewSefer = activeSefer !== null ? activeSefer : itemSefer;
   const seferRows = rows.filter(r => seferOf(r.id) === viewSefer);
   const seferDone = seferRows.filter(r => complete(state(r.id))).length;
-  const hebYear = hebrewYearOf(item.date);
-  const groups = SEFARIM.map((s, i) => ({ ...s, rows: rows.filter(r => seferOf(r.id) === i) })).filter(g => g.rows.length);
-  const targumOn = !!(p.onkelos || p.rashi);
-  const activeFlavor = p.onkelos ? 'Onkelos' : p.rashi ? 'Rashi' : null;
   const authLabel = user ? `Account, ${user.email || 'signed in'}` : 'Sign in to sync across devices';
   const accountBtn = user
     ? `<button class="avatarbtn" id="account" aria-label="${authLabel}" title="${user.email || ''}">${avatarInitial()}</button>`
@@ -199,42 +198,42 @@ function render() {
   <a class="skip" href="#reading">Skip to reading</a>
   <div class="page">
     <header class="topbar">
-      <span class="brand"><span class="brandicon" aria-hidden="true">${bookIcon}</span>Shnayim Mikra${hebYear ? `<span class="hebyear"> · ${hebYear}</span>` : ''}</span>
       <span class="topright">
         <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
         ${accountBtn}
       </span>
     </header>
-
     <main>
-      <div class="titlerow">
+      <header class="titlerow">
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
-      </div>
-      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}
+      </header>
 
       <div class="cards">
-        <section class="card" id="reading" aria-label="Your reading for ${titleName(item.names)}">
-          <div class="cardhead"><h2>Your reading</h2><span class="count">${n} of 3</span></div>
-          <div class="bar" role="img" aria-label="${n} of 3 readings done"><div style="width:${(n / 3) * 100}%"></div></div>
+        <section class="card" id="reading" aria-label="Shnayim Mikra for ${titleName(item.names)}">
           <ol class="reads">
             ${readingRow('mikra1', '1', 'Mikra I', !!p.mikra1, `First reading of the parsha${p.mikra1 ? ', done' : ''}`)}
             ${readingRow('mikra2', '2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
-            ${readingRow('targum', '3', 'Targum', targumOn, `Commentary reading${activeFlavor ? `, ${activeFlavor} done` : `, not done`}`)}
+            <li class="commentaryrow">
+              <span class="rnum" aria-hidden="true">3</span>
+              <div class="commentaryoptions" role="group" aria-label="Commentary">
+                ${readingControl('rashi', 'Rashi', !!p.rashi, `Rashi commentary, ${p.rashi ? 'done' : 'not done'}`, null, !!p.onkelos && !p.rashi)}
+                ${readingControl('onkelos', 'Targum', !!p.onkelos, `Targum (Onkelos), ${p.onkelos ? 'done' : 'not done'}`, null, !!p.rashi && !p.onkelos)}
+              </div>
+            </li>
           </ol>
-          ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
+          <p class="resetrow"><button class="resetlink" id="reset-week" ${n === 0 ? 'disabled aria-hidden="true"' : ''}>Reset this week</button></p>
         </section>
 
         <div class="sidecol">
           <section class="card yearly" aria-label="Yearly progress">
-            <h2 class="kicker">YEARLY PROGRESS</h2>
             <p class="bignum">${done} <span>/ ${rows.length}</span></p>
             <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
             <p class="bigsub">Parshiyos completed</p>
           </section>
 
-          <section class="card shabbos" aria-label="Next Shabbos">
-            <h2 class="kicker">NEXT SHABBOS</h2>
+          <section class="card shabbos" aria-label="Upcoming Shabbos">
+            <h2 class="kicker">Upcoming Shabbos</h2>
             <p class="shabbos-count">${countdownText}</p>
             <p class="shabbos-date">${shabbosDateText}</p>
           </section>
@@ -242,65 +241,45 @@ function render() {
       </div>
 
       <section class="card cycle" aria-label="The yearly cycle">
-        <div class="sefertabs" role="tablist" aria-label="Torah Books">
+        <nav class="sefertabs" aria-label="Torah Books">
           ${SEFARIM.map((s, i) => {
             const isCurrent = i === viewSefer;
             const sRows = rows.filter(r => seferOf(r.id) === i);
             const sDone = sRows.filter(r => complete(state(r.id))).length;
-            const allDone = sDone === sRows.length && sRows.length > 0;
-            return `<button role="tab" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-selected="${isCurrent ? 'true' : 'false'}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
-              <span>${s.en}</span>${allDone ? `<span class="sefertick" aria-hidden="true">${check}</span>` : ''}
+            return `<button type="button" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-pressed="${isCurrent}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
+              ${s.en}
             </button>`;
           }).join('')}
-        </div>
+        </nav>
 
         <div class="cyclesub">
-          <span class="cycname">${SEFARIM[viewSefer].en} · <span lang="he" dir="rtl">${SEFARIM[viewSefer].he}</span></span>
+          <h2 class="cycname"><span>Sefer ${SEFARIM[viewSefer].en}</span><span class="seferhe" lang="he" dir="rtl">ספר ${SEFARIM[viewSefer].he}</span></h2>
           <span class="cyccount">${seferDone}/${seferRows.length}</span>
         </div>
 
-        <div class="dots" role="list">
-          ${seferRows.map(r => {
+        <ol class="parshalist" aria-label="Parshiyos in ${SEFARIM[viewSefer].en}">
+          ${seferRows.map((r, i) => {
             const s = state(r.id);
             const isDone = complete(s);
             const isCur = r.id === weekly.id;
             const isSel = r.id === item.id;
             const numSteps = steps(s);
-            const cls = [isDone ? 'done' : '', isCur ? 'current' : '', isSel ? 'selected' : '', (!isDone && numSteps > 0) ? 'started' : ''].filter(Boolean).join(' ');
-            const st = isDone ? 'Completed' : numSteps > 0 ? `${numSteps} of 3 done` : 'Not started';
-            const tooltipText = `${titleName(r.names)} · ${st}`;
-            const ariaLabel = `${titleName(r.names)}, ${st}${isCur ? ', this week' : ''}${isSel ? ', selected' : ''}`;
-            return `<button role="listitem" class="dot ${cls}" data-parsha="${r.id}" title="${tooltipText}" aria-label="${ariaLabel}">
-              ${isDone ? `<span class="dotcheck" aria-hidden="true">${check}</span>` : ''}
-              <span class="dot-tooltip" aria-hidden="true">${tooltipText}</span>
-            </button>`;
+            const isPartial = numSteps > 0 && !isDone;
+            const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done` : 'Not started';
+            return `<li>
+              <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${st}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
+                <span class="parshanum" aria-hidden="true">${isDone ? check : i + 1}</span>
+                <span class="parshaen">${titleName(r.names)}</span>
+                <span class="parshahe" lang="he" dir="rtl">${hebrewParshaName(r.names)}</span>
+                <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? `${numSteps}/3` : isCur ? 'Current' : ''}</span>
+              </button>
+            </li>`;
           }).join('')}
-        </div>
+        </ol>
 
-        <div class="browserow">
-          <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
-        </div>
-
-        ${showAll ? `
-        <hr class="footrule" />
-        <div class="alllist">
-          ${groups.map(g => {
-            const gd = g.rows.filter(r => complete(state(r.id))).length;
-            return `<div class="allgroup">
-              <p class="allname">${g.en} <span lang="he" dir="rtl">${g.he}</span> <span class="allcount">${gd}/${g.rows.length}</span></p>
-              <div class="alltiles">
-                ${g.rows.map(r => {
-                  const s = state(r.id);
-                  const cls = complete(s) ? 'done' : r.id === weekly.id ? 'current' : '';
-                  return `<button class="alltile ${cls}${r.id === item.id ? ' selected' : ''}" data-parsha="${r.id}" ${r.id === weekly.id ? 'aria-current="true"' : ''}>${titleName(r.names)}</button>`;
-                }).join('')}
-              </div>
-            </div>`;
-          }).join('')}
-        </div>` : ''}
       </section>
 
-      <footer><span id="syncstate" role="status">${syncLabel()}</span>${storageOK ? '' : '<span class="warn"> Progress could not be saved. Check browser storage.</span>'}</footer>
+      ${storageOK ? '' : '<footer><span class="warn">Progress could not be saved. Check browser storage.</span></footer>'}
     </main>
   </div>
   <div id="dialog-root"></div>
@@ -313,30 +292,33 @@ function wire(rows, weekly, item, p) {
   document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
     activeSefer = Number(b.dataset.seferTab);
     render();
+    document.querySelector(`[data-sefer-tab="${activeSefer}"]`).focus({ preventScroll: true });
   });
   document.querySelectorAll('[data-parsha]').forEach(b => b.onclick = () => {
+    const rowTop = b.getBoundingClientRect().top;
     chosen = b.dataset.parsha;
     activeSefer = seferOf(chosen);
     render();
-    document.querySelector('#reading').scrollIntoView({ block: 'start' });
+    const selected = document.querySelector('.parsharow.selected');
+    selected.focus({ preventScroll: true });
+    // Keep the clicked row in place when the new parsha heading wraps.
+    const offset = selected.getBoundingClientRect().top - rowTop;
+    window.scrollTo({ top: window.scrollY + offset, behavior: 'instant' });
+    announce(`${titleName(rows.find(r => r.id === chosen).names)} selected`);
   });
 
   const toggleReading = (k) => {
+    const otherCommentary = k === 'rashi' ? 'onkelos' : k === 'onkelos' ? 'rashi' : null;
+    if (otherCommentary && p[otherCommentary] && !p[k]) return;
     const nextState = { ...p };
-    if (k === 'mikra1' || k === 'mikra2') {
-      nextState[k] = !p[k];
-    } else {
-      const pref = data.commentary === 'rashi' ? 'rashi' : 'onkelos';
-      if (nextState.onkelos || nextState.rashi) { nextState.onkelos = false; nextState.rashi = false; }
-      else nextState[pref] = true;
-    }
+    nextState[k] = !p[k];
     setProgress(item.id, nextState);
     render();
     const again = document.querySelector(`button[data-reading="${k}"]`);
     if (again) again.focus({ preventScroll: true });
     const q = state(item.id);
-    const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : 'Commentary reading';
-    announce(complete(q) ? `${titleName(item.names)} complete` : `${label} ${steps(q)} of 3 done`);
+    const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : k === 'rashi' ? 'Rashi' : 'Targum';
+    announce(`${label} ${q[k] ? 'done' : 'not done'}. ${titleName(item.names)}${complete(q) ? ' complete' : `, ${steps(q)} of 3 done`}`);
   };
 
   document.querySelectorAll('.readrow').forEach(row => {
@@ -346,7 +328,7 @@ function wire(rows, weekly, item, p) {
     };
   });
 
-  document.querySelectorAll('.rcheck').forEach(btn => {
+  document.querySelectorAll('button[data-reading]').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
       const k = btn.dataset.reading;
@@ -355,11 +337,12 @@ function wire(rows, weekly, item, p) {
   });
 
   const reset = document.querySelector('#reset-week');
-  if (reset) reset.onclick = () => { setProgress(item.id, {}); render(); announce(`${titleName(item.names)} reset`); };
-  const back = document.querySelector('#back-week');
-  if (back) back.onclick = () => { chosen = null; activeSefer = null; render(); window.scrollTo({ top: 0 }); };
-  const browse = document.querySelector('#browse');
-  if (browse) browse.onclick = () => { showAll = !showAll; render(); };
+  if (reset) reset.onclick = () => {
+    setProgress(item.id, {});
+    render();
+    document.querySelector('[data-reading="mikra1"]').focus({ preventScroll: true });
+    announce(`${titleName(item.names)} reset`);
+  };
   document.querySelector('#settings').onclick = settings;
   const account = document.querySelector('#account');
   if (account) account.onclick = authDialog;
@@ -479,17 +462,13 @@ function settings() {
     <label class="setting-row">Reading calendar
       <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
     </label>
-    <label class="setting-row">Commentary
-      <select id="pref"><option value="onkelos" ${data.commentary !== 'rashi' ? 'selected' : ''}>Onkelos</option><option value="rashi" ${data.commentary === 'rashi' ? 'selected' : ''}>Rashi</option></select>
-    </label>
     <label class="setting-row">Cycle
       <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select>
     </label>
-    <p class="dialog-note">The weekly parsha follows this calendar. Switching calendars keeps your checkmarks, but the “this week” parsha may change. ${cloudEnabled ? (user ? 'Signed in — progress syncs to your account and this device.' : 'Progress is saved on this device. Sign in (top right) to sync across devices.') : 'Progress is saved in this browser, on this device.'}</p>
+    <p class="dialog-note">The weekly parsha follows this calendar. Switching calendars keeps your checkmarks, but the “this week” parsha may change. ${cloudEnabled ? (user ? 'Signed in — progress syncs to your account and this device.' : 'Progress is saved on this device. Sign in to sync across devices.') : 'Progress is saved in this browser, on this device.'}</p>
     <button class="primary" id="save-settings">Done</button>`, 'Settings');
   document.querySelector('#save-settings').onclick = () => {
     data.israel = document.querySelector('#location').value === 'true';
-    data.commentary = document.querySelector('#pref').value === 'rashi' ? 'rashi' : 'onkelos';
     year = Number(document.querySelector('#cyear').value);
     chosen = null;
     activeSefer = null;
