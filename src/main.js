@@ -154,24 +154,22 @@ function announce(msg) {
   if (el) el.textContent = msg;
 }
 
-function readingControl(key, label, on, ariaLabel, num = null, disabled = false) {
-  if (!num) {
-    return `<button type="button" class="readrow commentarychoice${on ? ' on' : ''}${disabled ? ' unavailable' : ''}" data-reading-row="${key}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
-      ${on ? `<span class="commentarycheck" aria-hidden="true">${check}</span>` : ''}
-      <span class="rlabel">${label}</span>
-    </button>`;
-  }
-  return `<div class="readingstep" data-reading-row="${key}">
-      <span class="rnum" aria-hidden="true">${num}</span>
-      <button type="button" class="readrow readingchoice${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
+function readingControl(key, label, on, ariaLabel, disabled = false) {
+  return `<button type="button" class="readrow commentarychoice${on ? ' on' : ''}${disabled ? ' unavailable' : ''}" data-reading-row="${key}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
+    ${on ? `<span class="commentarycheck" aria-hidden="true">${check}</span>` : ''}
+    <span class="rlabel">${label}</span>
+  </button>`;
+}
+
+function readingRow(key, label, on, ariaLabel) {
+  return `<li>
+    <div class="readingstep" data-reading-row="${key}">
+      <button type="button" class="readrow readingchoice${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}">
         <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
         <span class="rlabel">${label}</span>
       </button>
-    </div>`;
-}
-
-function readingRow(key, num, label, on, ariaLabel) {
-  return `<li>${readingControl(key, label, on, ariaLabel, num)}</li>`;
+    </div>
+  </li>`;
 }
 
 function render() {
@@ -212,13 +210,12 @@ function render() {
       <div class="cards">
         <section class="card" id="reading" aria-label="Shnayim Mikra for ${titleName(item.names)}">
           <ol class="reads">
-            ${readingRow('mikra1', '1', 'Mikra I', !!p.mikra1, `First reading of the parsha${p.mikra1 ? ', done' : ''}`)}
-            ${readingRow('mikra2', '2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
+            ${readingRow('mikra1', 'Mikra I', !!p.mikra1, `First reading of the parsha${p.mikra1 ? ', done' : ''}`)}
+            ${readingRow('mikra2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
             <li class="commentaryrow">
-              <span class="rnum" aria-hidden="true">3</span>
               <div class="commentaryoptions" role="group" aria-label="Commentary">
-                ${readingControl('rashi', 'Rashi', !!p.rashi, `Rashi commentary, ${p.rashi ? 'done' : 'not done'}`, null, !!p.onkelos && !p.rashi)}
-                ${readingControl('onkelos', 'Targum', !!p.onkelos, `Targum (Onkelos), ${p.onkelos ? 'done' : 'not done'}`, null, !!p.rashi && !p.onkelos)}
+                ${readingControl('rashi', 'Rashi', !!p.rashi, `Rashi commentary, ${p.rashi ? 'done' : 'not done'}`, !!p.onkelos && !p.rashi)}
+                ${readingControl('onkelos', 'Targum', !!p.onkelos, `Targum (Onkelos), ${p.onkelos ? 'done' : 'not done'}`, !!p.rashi && !p.onkelos)}
               </div>
             </li>
           </ol>
