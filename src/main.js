@@ -51,7 +51,6 @@ function syncLabel() {
   if (!user) return 'Saved on this device';
   if (syncStatus === 'syncing') return 'Syncing…';
   if (syncStatus === 'error') return 'Offline — saved on this device';
-  if (justMigrated) return 'Synced — your device progress was merged';
   return 'Saved to your account';
 }
 
@@ -193,6 +192,9 @@ function render() {
   const activeFlavor = p.onkelos ? 'Onkelos' : p.rashi ? 'Rashi' : null;
   const isDark = document.documentElement.dataset.theme === 'dark';
   const authLabel = user ? `Account, ${user.email || 'signed in'}` : 'Sign in to sync across devices';
+  const accountBtn = user
+    ? `<button class="avatarbtn" id="account" aria-label="${authLabel}" title="${user.email || ''}">${avatarInitial()}</button>`
+    : `<button class="signinbtn" id="account">Sign in</button>`;
   // Days left to finish this week's parsha before Shabbos (Saturday).
   const daysLeft = (6 - new Date().getDay() + 7) % 7;
   const weeklyDone = complete(state(weekly.id));
@@ -202,14 +204,11 @@ function render() {
   <a class="skip" href="#reading">Skip to reading</a>
   <div class="page">
     <header class="topbar">
-      <span class="brand"><span class="brandicon" aria-hidden="true">${bookIcon}</span>Shnayim Mikra</span>
+      <span class="brand"><span class="brandicon" aria-hidden="true">${bookIcon}</span>Shnayim Mikra${hebYear ? `<span class="hebyear"> · ${hebYear}</span>` : ''}</span>
       <span class="topright">
-        ${hebYear ? `<span class="hebyear">${hebYear}</span>` : ''}
-        ${user
-          ? `<button class="avatarbtn" id="account" aria-label="${authLabel}" title="${user.email || ''}">${avatarInitial()}</button>`
-          : `<button class="signinbtn" id="account">Sign in</button>`}
         <button class="iconbtn" id="theme" aria-label="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-pressed="${isDark}">${isDark ? sunIcon : moonIcon}</button>
         <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
+        ${accountBtn}
       </span>
     </header>
 
@@ -323,10 +322,13 @@ function wire(rows, weekly, item, p) {
   if (account) account.onclick = authDialog;
 }
 
-function avatarInitial() {
+function avatarInitialInner() {
   const src = user?.email || user?.user_metadata?.name || '•';
-  const ch = String(src).trim().charAt(0).toUpperCase() || '•';
-  return `<span aria-hidden="true">${ch}</span>`;
+  return String(src).trim().charAt(0).toUpperCase() || '•';
+}
+
+function avatarInitial() {
+  return `<span aria-hidden="true">${avatarInitialInner()}</span>`;
 }
 
 function authDialog() {

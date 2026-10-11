@@ -98,6 +98,7 @@ h1, h2, h3, p { margin: 0; }
 .brandicon svg { width: 26px; height: 26px; }
 .topright { display: flex; align-items: center; gap: 12px; }
 .hebyear { font-size: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.brand .hebyear { font-size: 16px; font-weight: 500; white-space: nowrap; }
 .iconbtn { width: 40px; height: 40px; border-radius: 10px; display: inline-grid; place-items: center; color: #3d3d3b; }
 .iconbtn:hover { background: var(--hover); }
 .iconbtn svg { width: 24px; height: 24px; }
@@ -241,7 +242,7 @@ footer .warn { color: #9a5b00; }
 [data-theme="dark"] .gsi-btn:active { background: #2a2a2b; }
 .dialog-note { margin-top: 10px; }
 .dialog code { font-size: 12.5px; }
-footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: center; }
 
 /* ---------- Compact mobile pass: keep the mock's 2-up cards + full-width cycle ---------- */
 @media (max-width: 640px) {
@@ -251,6 +252,7 @@ footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wr
   .brandicon svg { width: 22px; height: 22px; }
   .topright { gap: 6px; }
   .hebyear { font-size: 16px; }
+  .brand .hebyear { font-size: 13px; }
   .iconbtn { width: 38px; height: 38px; }
   .iconbtn svg { width: 21px; height: 21px; }
   .titlerow { gap: 10px; margin-top: 14px; }
