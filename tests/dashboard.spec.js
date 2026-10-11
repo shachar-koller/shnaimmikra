@@ -144,7 +144,7 @@ test('commentary choices can be switched and remain specific to each week', asyn
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
   await expect(rashi).toHaveAttribute('aria-checked', 'true');
   await expect(targum).toBeDisabled();
-  await page.locator('#reset-week').click();
+  await rashi.click();
   await expect(rashi).toBeEnabled();
   await expect(targum).toBeEnabled();
 });
@@ -181,8 +181,14 @@ for (const width of [320, 360, 393, 440, 768, 1280]) {
       expect(new Set(layout.englishColumns).size).toBe(1);
       expect(layout.list).toBeLessThan(layout.card);
     }
-    const positions = await page.locator('.sefertab').evaluateAll(elements => elements.map(e => e.offsetTop));
-    expect(new Set(positions).size).toBe(1);
+    const tabs = await page.locator('.sefertab').evaluateAll(elements => elements.map(e => {
+      const rect = e.getBoundingClientRect();
+      const nav = e.parentElement.getBoundingClientRect();
+      return { top: rect.top, fits: rect.left >= nav.left && rect.right <= nav.right && e.scrollWidth <= e.clientWidth };
+    }));
+    expect(tabs).toHaveLength(5);
+    expect(new Set(tabs.map(tab => tab.top)).size).toBe(1);
+    expect(tabs.every(tab => tab.fits)).toBe(true);
     await expect(page.locator('[data-sefer-tab="4"]')).toBeInViewport();
   });
 }

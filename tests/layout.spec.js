@@ -32,7 +32,7 @@ for (const width of [393, 1280]) {
       await expect(page.locator('[data-reading="mikra1"]')).toHaveAttribute('aria-checked', 'true');
     });
 
-    test('checking and resetting progress keeps the cards in place', async ({ page }) => {
+    test('checking and unchecking progress keeps the cards in place', async ({ page }) => {
       const positions = () => page.evaluate(() =>
         ['#reading', '.sidecol', '.cycle'].map(selector => {
           const rect = document.querySelector(selector).getBoundingClientRect();
@@ -40,12 +40,12 @@ for (const width of [393, 1280]) {
         }),
       );
       const before = await positions();
-      await expect(page.locator('#reset-week')).toBeHidden();
+      await expect(page.locator('#reset-week')).toHaveCount(0);
       await page.locator('[data-reading="mikra1"]').click();
-      await expect(page.locator('#reset-week')).toBeVisible();
+      await expect(page.locator('#reset-week')).toHaveCount(0);
       expect(await positions()).toEqual(before);
-      await page.locator('#reset-week').click();
-      await expect(page.locator('#reset-week')).toBeHidden();
+      await page.locator('[data-reading="mikra1"]').click();
+      await expect(page.locator('[data-reading="mikra1"]')).toHaveAttribute('aria-checked', 'false');
       await expect(page.locator('[data-reading="mikra1"]')).toBeFocused();
       await expect(page.locator('[data-reading-row="mikra1"]')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
       expect(await positions()).toEqual(before);

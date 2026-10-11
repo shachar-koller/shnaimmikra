@@ -179,7 +179,6 @@ function render() {
   const weekly = currentParsha(rows);
   const item = rows.find(r => r.id === chosen) || weekly;
   const p = state(item.id);
-  const n = steps(p);
   const done = rows.filter(r => complete(state(r.id))).length;
   const weeklySteps = steps(state(weekly.id));
   const itemSefer = seferOf(item.id);
@@ -223,7 +222,6 @@ function render() {
               </div>
             </li>
           </ol>
-          <p class="resetrow"><button class="resetlink" id="reset-week" ${n === 0 ? 'disabled aria-hidden="true"' : ''}>Reset this week</button></p>
         </section>
 
         <div class="sidecol">
@@ -297,12 +295,6 @@ function render() {
 }
 
 function wire(rows, weekly, item, p) {
-  // Keep the active book visible when the tab strip is narrower than its contents.
-  const activeTab = document.querySelector('.sefertab.active');
-  const tabStrip = document.querySelector('.sefertabs');
-  if (activeTab && tabStrip) {
-    tabStrip.scrollLeft = Math.max(0, activeTab.offsetLeft - (tabStrip.clientWidth - activeTab.offsetWidth) / 2);
-  }
   document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
     activeSefer = Number(b.dataset.seferTab);
     render();
@@ -357,13 +349,6 @@ function wire(rows, weekly, item, p) {
     };
   });
 
-  const reset = document.querySelector('#reset-week');
-  if (reset) reset.onclick = () => {
-    setProgress(item.id, {});
-    render();
-    document.querySelector('[data-reading="mikra1"]').focus({ preventScroll: true });
-    announce(`${titleName(item.names)} reset`);
-  };
   document.querySelector('#settings').onclick = settings;
   const account = document.querySelector('#account');
   if (account) account.onclick = authDialog;

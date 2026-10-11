@@ -113,9 +113,6 @@ main { min-width: 0; }
 .commentaryoptions .commentarychoice.on { background: #fff; color: var(--green); box-shadow: 0 1px 3px rgba(33, 53, 27, 0.09); }
 .commentaryoptions .commentarychoice.unavailable { background: transparent; color: #9ca493; cursor: default; }
 .readrow:focus-visible { outline-color: var(--green); }
-.resetrow { margin-top: 7px; padding-left: 40px; line-height: 18px; }
-.resetlink { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
-.resetlink:disabled { visibility: hidden; }
 .just-checked .rcheck, .just-checked .commentarycheck { animation: check-pop 280ms ease-out; }
 .just-checked svg path { stroke-dasharray: 30; animation: check-draw 230ms ease-out; }
 @keyframes check-pop { 0% { transform: scale(.88); } 55% { transform: scale(1.09); } 100% { transform: scale(1); } }
@@ -142,18 +139,18 @@ main { min-width: 0; }
 
 /* Sefer browser */
 .cycle { margin-top: 12px; padding: 12px 14px 8px; }
-.sefertabs { position: relative; display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--track) transparent; padding: 3px 2px 6px; scroll-padding-inline: 2px; }
+.sefertabs { display: flex; gap: 3px; }
 .sefertab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-height: 40px;
-  padding: 5px 14px;
-  border-radius: 18px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 8px;
   background: var(--tilebg);
   color: #555854;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -260,7 +257,7 @@ footer .warn { color: #9a5b00; }
   .rlabel { font-size: 15px; }
   .cycname { font-size: 18px; gap: 9px; }
   .cyccount { font-size: 18px; }
-  .sefertab { min-height: 40px; font-size: 12px; padding-inline: 12px; }
+  .sefertab { font-size: 11px; padding-inline: 5px; }
   .parsharow { grid-template-columns: 22px minmax(0, 1fr) 54px 22px; gap: 8px; padding: 5px 6px; min-height: 40px; }
   .parshanum { width: 22px; height: 26px; }
   .parshaen { font-size: 13px; }
@@ -278,7 +275,7 @@ footer .warn { color: #9a5b00; }
   .card { padding: 14px; }
   .commentaryoptions .rlabel { font-size: 14px; }
   .cycle { padding: 12px 10px 8px; }
-  .sefertab { padding-inline: 10px; }
+  .sefertab { padding-inline: 3px; font-size: 10.5px; }
   .cycname { font-size: 18px; }
   .shabbos-count { font-size: 20px; }
 }
@@ -287,7 +284,6 @@ footer .warn { color: #9a5b00; }
   .sidecol { gap: 16px; }
   .cards { gap: 16px; margin-top: 22px; }
   .cycle { margin-top: 16px; }
-  .sefertab { min-height: 40px; padding-inline: 22px; font-size: 14px; }
   .cyclesub { margin-top: 20px; }
   .parsharow { grid-template-columns: 26px minmax(0, 1fr) 76px 22px; min-height: 44px; gap: 12px; }
   .parshaen { font-size: 16px; }
