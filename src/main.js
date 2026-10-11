@@ -5,7 +5,7 @@ import { cloudEnabled, supabase, signInWithGoogle, signOut, getSession, onAuthCh
 import { mergeState, pullCloud, pushAllProgress, pushProfile, createPushQueue } from './sync.js';
 
 const KEY = 'shnaim-mikra-v1';
-let data = { progress: {}, israel: false, commentary: 'onkelos', theme: undefined };
+let data = { progress: {}, israel: false, commentary: 'onkelos' };
 let storageOK = true;
 try {
   const raw = JSON.parse(localStorage.getItem(KEY));
@@ -14,26 +14,13 @@ try {
       progress: raw.progress,
       israel: raw.israel === true,
       commentary: raw.commentary === 'rashi' ? 'rashi' : 'onkelos',
-      theme: raw.theme === 'dark' || raw.theme === 'light' ? raw.theme : undefined,
     };
   }
 } catch { storageOK = false; }
 
-function applyTheme() {
-  const t = data.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  document.documentElement.dataset.theme = t;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = t === 'dark' ? '#141412' : '#ffffff';
-}
-function toggleTheme() {
-  data.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-  save(); applyTheme(); render();
-  const btn = document.querySelector('#theme');
-  if (btn) btn.focus({ preventScroll: true });
-}
-
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
+let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/weekly sefer
 let showAll = false;
 
 // ── Cloud auth + sync (offline-first; no-ops when env keys absent) ──
@@ -57,8 +44,6 @@ function syncLabel() {
 const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
 const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 5.5C10 4.5 7.5 4 4.5 4v15c3 0 5.5.5 7.5 1.5 2-1 4.5-1.5 7.5-1.5V4c-3 0-5.5.5-7.5 1.5z"/><path d="M12 5.5v15"/></svg>';
 const slidersIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>';
-const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
-const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
 
 // Sefer grouping. Keys are exact Hebcal English names (full id first,
 // so hyphenated names like Lech-Lecha resolve correctly).
@@ -183,14 +168,14 @@ function render() {
   const n = steps(p);
   const done = rows.filter(r => complete(state(r.id))).length;
   const isWeekly = item.id === weekly.id;
-  const sIdx = seferOf(item.id);
-  const seferRows = rows.filter(r => seferOf(r.id) === sIdx);
+  const itemSefer = seferOf(item.id);
+  const viewSefer = activeSefer !== null ? activeSefer : itemSefer;
+  const seferRows = rows.filter(r => seferOf(r.id) === viewSefer);
   const seferDone = seferRows.filter(r => complete(state(r.id))).length;
   const hebYear = hebrewYearOf(item.date);
   const groups = SEFARIM.map((s, i) => ({ ...s, rows: rows.filter(r => seferOf(r.id) === i) })).filter(g => g.rows.length);
   const targumOn = !!(p.onkelos || p.rashi);
   const activeFlavor = p.onkelos ? 'Onkelos' : p.rashi ? 'Rashi' : null;
-  const isDark = document.documentElement.dataset.theme === 'dark';
   const authLabel = user ? `Account, ${user.email || 'signed in'}` : 'Sign in to sync across devices';
   const accountBtn = user
     ? `<button class="avatarbtn" id="account" aria-label="${authLabel}" title="${user.email || ''}">${avatarInitial()}</button>`
@@ -206,7 +191,6 @@ function render() {
     <header class="topbar">
       <span class="brand"><span class="brandicon" aria-hidden="true">${bookIcon}</span>Shnayim Mikra${hebYear ? `<span class="hebyear"> · ${hebYear}</span>` : ''}</span>
       <span class="topright">
-        <button class="iconbtn" id="theme" aria-label="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-pressed="${isDark}">${isDark ? sunIcon : moonIcon}</button>
         <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
         ${accountBtn}
       </span>
@@ -217,8 +201,7 @@ function render() {
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </div>
-      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}
-
+      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}\n
       <div class="cards">
         <section class="card" id="reading" aria-label="Your reading for ${titleName(item.names)}">
           <div class="cardhead"><h2>Your reading</h2><span class="count">${n} of 3</span></div>
@@ -231,7 +214,7 @@ function render() {
           ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
         </section>
 
-        <section class="card" aria-label="Yearly progress">
+        <section class="card yearly" aria-label="Yearly progress">
           <h2 class="kicker">YEARLY PROGRESS</h2>
           <p class="bignum">${done} <span>/ ${rows.length}</span></p>
           <p class="bigsub">Parshiyos completed</p>
@@ -243,11 +226,22 @@ function render() {
       </div>
 
       <section class="card cycle" aria-label="The yearly cycle">
-        <div class="cyclehead solo">
+        <div class="cyclehead">
+          <div class="sefertabs" role="tablist" aria-label="Torah Books">
+            ${SEFARIM.map((s, i) => {
+              const isCurrent = i === viewSefer;
+              const sRows = rows.filter(r => seferOf(r.id) === i);
+              const sDone = sRows.filter(r => complete(state(r.id))).length;
+              const allDone = sDone === sRows.length && sRows.length > 0;
+              return `<button role="tab" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-selected="${isCurrent ? 'true' : 'false'}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
+                <span>${s.en}</span>${allDone ? `<span class="sefertick" aria-hidden="true">${check}</span>` : ''}
+              </button>`;
+            }).join('')}
+          </div>
           <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
         </div>
         <div class="cyclesub">
-          <span class="cycname">${SEFARIM[sIdx].en} · <span lang="he" dir="rtl">${SEFARIM[sIdx].he}</span></span>
+          <span class="cycname">${SEFARIM[viewSefer].en} · <span lang="he" dir="rtl">${SEFARIM[viewSefer].he}</span></span>
           <span class="cyccount">${seferDone}/${seferRows.length}</span>
         </div>
         <div class="dots" role="list">
@@ -287,8 +281,13 @@ function render() {
 }
 
 function wire(rows, weekly, item, p) {
+  document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
+    activeSefer = Number(b.dataset.seferTab);
+    render();
+  });
   document.querySelectorAll('[data-parsha]').forEach(b => b.onclick = () => {
     chosen = b.dataset.parsha;
+    activeSefer = seferOf(chosen);
     render();
     document.querySelector('#reading').scrollIntoView({ block: 'start' });
   });
@@ -313,11 +312,10 @@ function wire(rows, weekly, item, p) {
   const reset = document.querySelector('#reset-week');
   if (reset) reset.onclick = () => { setProgress(item.id, {}); render(); announce(`${titleName(item.names)} reset`); };
   const back = document.querySelector('#back-week');
-  if (back) back.onclick = () => { chosen = null; render(); window.scrollTo({ top: 0 }); };
+  if (back) back.onclick = () => { chosen = null; activeSefer = null; render(); window.scrollTo({ top: 0 }); };
   const browse = document.querySelector('#browse');
   if (browse) browse.onclick = () => { showAll = !showAll; render(); };
   document.querySelector('#settings').onclick = settings;
-  document.querySelector('#theme').onclick = toggleTheme;
   const account = document.querySelector('#account');
   if (account) account.onclick = authDialog;
 }
@@ -402,11 +400,9 @@ async function handleSession(session) {
   try {
     const { profile, rows } = await pullCloud(user.id, year);
     const hadLocal = Object.keys(data.progress || {}).length > 0;
-    data = { ...mergeState(data, rows, profile), theme: data.theme };
-    // mergeState takes server theme; keep local data object shape valid
-    if (data.theme !== 'dark' && data.theme !== 'light') data.theme = undefined;
+    data = mergeState(data, rows, profile);
     justMigrated = hadLocal;
-    save(); applyTheme(); render();
+    save(); render();
     // Push merged union back up so other devices converge.
     await pushAllProgress(user.id, data.progress);
     await pushProfile(user.id, data);
@@ -451,6 +447,7 @@ function settings() {
     data.commentary = document.querySelector('#pref').value === 'rashi' ? 'rashi' : 'onkelos';
     year = Number(document.querySelector('#cyear').value);
     chosen = null;
+    activeSefer = null;
     save(); render(); document.querySelector('#dialog-root').innerHTML = '';
   };
 }
@@ -460,14 +457,12 @@ window.addEventListener('storage', e => {
     try {
       const d = JSON.parse(e.newValue);
       if (d?.progress) {
-        data = { progress: d.progress, israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos', theme: d.theme === 'dark' || d.theme === 'light' ? d.theme : undefined };
-        applyTheme();
+        data = { progress: d.progress, israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos' };
         render();
       }
     } catch { /* keep current state */ }
   }
 });
-applyTheme();
 render();
 if (cloudEnabled && supabase) {
   getSession().then(s => handleSession(s)).catch(() => {});
