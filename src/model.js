@@ -15,3 +15,21 @@ export function schedule(year, israel = false) {
  rows.push({id:'Vezot Haberakhah',names:['Vezot Haberakhah'],date:new HDate(end).greg(),hebrew:new HDate(end).renderGematriya(),num:54});
  return rows;
 }
+export function localShabbosDate(gregDate) {
+ return new Date(gregDate.getUTCFullYear(), gregDate.getUTCMonth(), gregDate.getUTCDate());
+}
+export function currentParsha(rows, now = new Date()) {
+ const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+ return rows.find(r => localShabbosDate(r.date) >= today) || rows.at(-1);
+}
+export function shabbosCountdown(targetDate, now = new Date()) {
+ const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+ const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+ const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
+ if (diffDays <= 0) return 'Today';
+ if (diffDays === 1) return '1 day away';
+ return `${diffDays} days away`;
+}
+export function formatGregorianDate(date) {
+ return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(date);
+}

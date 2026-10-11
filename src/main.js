@@ -1,6 +1,15 @@
 import './style.css';
 import { HDate, Locale } from '@hebcal/core';
-import { complete, steps, cycleYear, schedule } from './model.js';
+import {
+  complete,
+  steps,
+  cycleYear,
+  schedule,
+  localShabbosDate,
+  currentParsha,
+  shabbosCountdown,
+  formatGregorianDate,
+} from './model.js';
 import { cloudEnabled, supabase, signInWithGoogle, signOut, getSession, onAuthChange, googleNativeEnabled, renderGoogleButton } from './auth.js';
 import { mergeState, pullCloud, pushAllProgress, pushProfile, createPushQueue } from './sync.js';
 
@@ -56,7 +65,7 @@ const SEFER_OF = {};
   ['Devarim', 'Vaetchanan', 'Eikev', "Re'eh", 'Shoftim', 'Ki Teitzei', 'Ki Tavo', 'Nitzavim', 'Vayeilech', "Ha'azinu", 'Vezot Haberakhah'],
 ].forEach((names, i) => names.forEach(n => { SEFER_OF[n] = i; }));
 const SEFARIM = [
-  { en: 'Bereshis', he: 'בראשית' },
+  { en: 'Bereishis', he: 'בראשית' },
   { en: 'Shemos', he: 'שמות' },
   { en: 'Vayikra', he: 'ויקרא' },
   { en: 'Bamidbar', he: 'במדבר' },
@@ -66,7 +75,7 @@ const seferOf = id => SEFER_OF[id] ?? SEFER_OF[id.split('-')[0]] ?? 0;
 // Ashkenazi (Yeshivish) transliteration of Hebcal's Sephardi/Modern Hebrew names.
 // Keyed by Hebcal parsha name; doubles are handled by splitting on '-' first.
 const ASHKENAZI = {
-  'Bereshit': 'Bereshis',
+  'Bereshit': 'Bereishis',
   'Noach': 'Noach',
   'Lech': 'Lech',
   'Lecha': 'Lecha',
@@ -142,7 +151,6 @@ function setProgress(id, next) {
   save();
   if (cloudEnabled && user) pushQueue.progress(user.id, year, id, next, s => setSync(s === 'ok' ? 'ok' : s));
 }
-function current(rows) { const today = new Date(); today.setHours(0, 0, 0, 0); return rows.find(r => r.date >= today) || rows.at(-1); }
 const hebrewYearOf = date => { try { return new HDate(date).getFullYear(); } catch { return null; } };
 
 function announce(msg) {
@@ -152,17 +160,19 @@ function announce(msg) {
 
 function readingRow(key, num, label, on, ariaLabel) {
   return `<li>
-    <button class="readrow" data-reading="${key}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${ariaLabel}">
+    <div class="readrow" data-reading-row="${key}">
       <span class="rnum" aria-hidden="true">${num}</span>
       <span class="rlabel">${label}</span>
-      <span class="rdot${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
-    </button>
+      <button type="button" class="rcheck${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${ariaLabel}">
+        ${on ? check : ''}
+      </button>
+    </div>
   </li>`;
 }
 
 function render() {
   const rows = all();
-  const weekly = current(rows);
+  const weekly = currentParsha(rows);
   const item = rows.find(r => r.id === chosen) || weekly;
   const p = state(item.id);
   const n = steps(p);
@@ -180,10 +190,10 @@ function render() {
   const accountBtn = user
     ? `<button class="avatarbtn" id="account" aria-label="${authLabel}" title="${user.email || ''}">${avatarInitial()}</button>`
     : `<button class="signinbtn" id="account">Sign in</button>`;
-  // Days left to finish this week's parsha before Shabbos (Saturday).
-  const daysLeft = (6 - new Date().getDay() + 7) % 7;
-  const weeklyDone = complete(state(weekly.id));
-  const countdown = weeklyDone ? 'This week complete' : daysLeft === 0 ? 'Due today' : daysLeft === 1 ? '1 day remaining' : `${daysLeft} days remaining`;
+
+  const upcomingShabbos = localShabbosDate(weekly.date);
+  const countdownText = shabbosCountdown(upcomingShabbos);
+  const shabbosDateText = formatGregorianDate(upcomingShabbos);
 
   document.querySelector('#app').innerHTML = `
   <a class="skip" href="#reading">Skip to reading</a>
@@ -201,7 +211,8 @@ function render() {
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </div>
-      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}\n
+      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}
+
       <div class="cards">
         <section class="card" id="reading" aria-label="Your reading for ${titleName(item.names)}">
           <div class="cardhead"><h2>Your reading</h2><span class="count">${n} of 3</span></div>
@@ -214,44 +225,62 @@ function render() {
           ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
         </section>
 
-        <section class="card yearly" aria-label="Yearly progress">
-          <h2 class="kicker">YEARLY PROGRESS</h2>
-          <p class="bignum">${done} <span>/ ${rows.length}</span></p>
-          <p class="bigsub">Parshiyos completed</p>
-          <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
-          <div class="yearspace" aria-hidden="true"></div>
-          <p class="nextlabel">This week</p>
-          <p class="nextrow"><span class="nextcount">${countdown}</span></p>
-        </section>
+        <div class="sidecol">
+          <section class="card yearly" aria-label="Yearly progress">
+            <h2 class="kicker">YEARLY PROGRESS</h2>
+            <p class="bignum">${done} <span>/ ${rows.length}</span></p>
+            <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
+            <p class="bigsub">Parshiyos completed</p>
+          </section>
+
+          <section class="card shabbos" aria-label="Next Shabbos">
+            <h2 class="kicker">NEXT SHABBOS</h2>
+            <p class="shabbos-count">${countdownText}</p>
+            <p class="shabbos-date">${shabbosDateText}</p>
+          </section>
+        </div>
       </div>
 
       <section class="card cycle" aria-label="The yearly cycle">
-        <div class="cyclehead">
-          <div class="sefertabs" role="tablist" aria-label="Torah Books">
-            ${SEFARIM.map((s, i) => {
-              const isCurrent = i === viewSefer;
-              const sRows = rows.filter(r => seferOf(r.id) === i);
-              const sDone = sRows.filter(r => complete(state(r.id))).length;
-              const allDone = sDone === sRows.length && sRows.length > 0;
-              return `<button role="tab" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-selected="${isCurrent ? 'true' : 'false'}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
-                <span>${s.en}</span>${allDone ? `<span class="sefertick" aria-hidden="true">${check}</span>` : ''}
-              </button>`;
-            }).join('')}
-          </div>
-          <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
+        <div class="sefertabs" role="tablist" aria-label="Torah Books">
+          ${SEFARIM.map((s, i) => {
+            const isCurrent = i === viewSefer;
+            const sRows = rows.filter(r => seferOf(r.id) === i);
+            const sDone = sRows.filter(r => complete(state(r.id))).length;
+            const allDone = sDone === sRows.length && sRows.length > 0;
+            return `<button role="tab" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-selected="${isCurrent ? 'true' : 'false'}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
+              <span>${s.en}</span>${allDone ? `<span class="sefertick" aria-hidden="true">${check}</span>` : ''}
+            </button>`;
+          }).join('')}
         </div>
+
         <div class="cyclesub">
           <span class="cycname">${SEFARIM[viewSefer].en} · <span lang="he" dir="rtl">${SEFARIM[viewSefer].he}</span></span>
           <span class="cyccount">${seferDone}/${seferRows.length}</span>
         </div>
+
         <div class="dots" role="list">
           ${seferRows.map(r => {
             const s = state(r.id);
-            const cls = [complete(s) ? 'done' : '', r.id === weekly.id ? 'current' : '', r.id === item.id ? 'selected' : '', (!complete(s) && steps(s) > 0) ? 'started' : ''].filter(Boolean).join(' ');
-            const st = complete(s) ? 'Completed' : steps(s) > 0 ? `${steps(s)} of 3 done` : 'Not started';
-            return `<button role="listitem" class="dot ${cls}" data-parsha="${r.id}" title="${titleName(r.names)}" aria-label="${titleName(r.names)}, ${st}${r.id === weekly.id ? ', this week' : ''}${r.id === item.id ? ', selected' : ''}">${complete(s) ? `<span class="dotcheck" aria-hidden="true">${check}</span>` : ''}</button>`;
+            const isDone = complete(s);
+            const isCur = r.id === weekly.id;
+            const isSel = r.id === item.id;
+            const numSteps = steps(s);
+            const cls = [isDone ? 'done' : '', isCur ? 'current' : '', isSel ? 'selected' : '', (!isDone && numSteps > 0) ? 'started' : ''].filter(Boolean).join(' ');
+            const st = isDone ? 'Completed' : numSteps > 0 ? `${numSteps} of 3 done` : 'Not started';
+            const tooltipText = `${titleName(r.names)} · ${st}`;
+            const ariaLabel = `${titleName(r.names)}, ${st}${isCur ? ', this week' : ''}${isSel ? ', selected' : ''}`;
+            return `<button role="listitem" class="dot ${cls}" data-parsha="${r.id}" title="${tooltipText}" aria-label="${ariaLabel}">
+              ${isDone ? `<span class="dotcheck" aria-hidden="true">${check}</span>` : ''}
+              <span class="dot-tooltip" aria-hidden="true">${tooltipText}</span>
+            </button>`;
           }).join('')}
         </div>
+
+        <div class="browserow">
+          <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
+        </div>
+
         ${showAll ? `
         <hr class="footrule" />
         <div class="alllist">
@@ -291,8 +320,8 @@ function wire(rows, weekly, item, p) {
     render();
     document.querySelector('#reading').scrollIntoView({ block: 'start' });
   });
-  document.querySelectorAll('[data-reading]').forEach(b => b.onclick = () => {
-    const k = b.dataset.reading;
+
+  const toggleReading = (k) => {
     const nextState = { ...p };
     if (k === 'mikra1' || k === 'mikra2') {
       nextState[k] = !p[k];
@@ -303,12 +332,28 @@ function wire(rows, weekly, item, p) {
     }
     setProgress(item.id, nextState);
     render();
-    const again = document.querySelector(`[data-reading="${k}"]`);
+    const again = document.querySelector(`button[data-reading="${k}"]`);
     if (again) again.focus({ preventScroll: true });
     const q = state(item.id);
     const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : 'Commentary reading';
     announce(complete(q) ? `${titleName(item.names)} complete` : `${label} ${steps(q)} of 3 done`);
+  };
+
+  document.querySelectorAll('.readrow').forEach(row => {
+    row.onclick = () => {
+      const k = row.dataset.readingRow;
+      if (k) toggleReading(k);
+    };
   });
+
+  document.querySelectorAll('.rcheck').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const k = btn.dataset.reading;
+      if (k) toggleReading(k);
+    };
+  });
+
   const reset = document.querySelector('#reset-week');
   if (reset) reset.onclick = () => { setProgress(item.id, {}); render(); announce(`${titleName(item.names)} reset`); };
   const back = document.querySelector('#back-week');
