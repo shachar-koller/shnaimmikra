@@ -196,7 +196,7 @@ footer .warn { color: #9a5b00; }
 .primary { width: 100%; padding: 12px; border-radius: 10px; background: #161616; color: #fff; font-size: 15px; font-weight: 700; min-height: 48px; margin-top: 10px; }
 .primary:hover { background: #000; }
 
-/* ---------- Compact mobile pass: phones get mock proportions, not desktop sizes ---------- */
+/* ---------- Compact mobile pass: keep the mock's 2-up cards + full-width cycle ---------- */
 @media (max-width: 640px) {
   .page { padding: 16px 12px 22px; }
   .topbar { padding-bottom: 14px; }
@@ -206,39 +206,50 @@ footer .warn { color: #9a5b00; }
   .hebyear { font-size: 16px; }
   .iconbtn { width: 38px; height: 38px; }
   .iconbtn svg { width: 21px; height: 21px; }
-  .eyebrow { margin-top: 20px; font-size: 12.5px; }
-  .titlerow { gap: 12px; margin-top: 8px; }
-  .titlerow h1 { font-size: 34px; }
-  .he { font-size: 34px; }
-  .subtitle { font-size: 16px; }
-  .cards { margin-top: 16px; gap: 12px; }
-  .card { padding: 18px 16px 16px; }
-  .cardhead h2 { font-size: 21px; }
-  .count { font-size: 15px; }
-  .bar { margin-top: 12px; }
-  .reads { margin-top: 4px; }
-  .readrow { gap: 12px; min-height: 52px; padding: 8px 2px; }
-  .rnum { width: 38px; height: 38px; font-size: 16px; }
-  .rlabel { font-size: 17px; }
-  .rdot { width: 28px; height: 28px; }
-  .rdot svg { width: 15px; height: 15px; }
-  .footnote { margin-top: 12px; font-size: 14.5px; }
-  .kicker { font-size: 13.5px; }
-  .bignum { font-size: 42px; }
-  .bignum span { font-size: 20px; }
-  .bigsub { font-size: 15.5px; }
-  .nextlabel { font-size: 15.5px; }
-  .nextlink { font-size: 19px; }
-  .nextarrow svg { width: 19px; height: 19px; }
-  .cyclehead h2 { font-size: 21px; }
-  .browselink { font-size: 15px; }
+  .eyebrow { margin-top: 16px; font-size: 11.5px; }
+  .titlerow { gap: 10px; margin-top: 6px; }
+  .titlerow h1 { font-size: 29px; }
+  .he { font-size: 29px; }
+  .subtitle { margin-top: 4px; font-size: 14px; }
+  .cards { margin-top: 14px; gap: 10px; grid-template-columns: 1fr 1fr; }
+  .card { padding: 14px 12px 12px; border-radius: 16px; }
+  .cardhead h2 { font-size: 16.5px; white-space: nowrap; }
+  .count { font-size: 12px; white-space: nowrap; }
+  .bar { margin-top: 10px; height: 5px; }
+  .reads { margin-top: 2px; }
+  .readrow { gap: 8px; min-height: 46px; padding: 6px 0; }
+  .rnum { width: 28px; height: 28px; font-size: 13px; }
+  .rlabel { font-size: 13.5px; }
+  .rdot { width: 22px; height: 22px; }
+  .rdot svg { width: 12px; height: 12px; }
+  .footnote { margin-top: 10px; font-size: 12px; line-height: 1.4; }
+  .resetlink { font-size: 12px; }
+  .kicker { font-size: 10.5px; }
+  .bignum { margin-top: 8px; font-size: 32px; }
+  .bignum span { font-size: 17px; }
+  .bigsub { font-size: 12.5px; }
+  .yearspace { min-height: 14px; }
+  .nextlabel { font-size: 12.5px; }
+  .nextlink { font-size: 15px; }
+  .nextarrow svg { width: 15px; height: 15px; }
+  .cyclehead { flex-wrap: nowrap; }
+  .cyclehead h2 { font-size: 17px; white-space: nowrap; }
+  .browselink { font-size: 12.5px; white-space: nowrap; }
   .cyclesub { margin-top: 10px; }
-  .cycname { font-size: 17px; }
-  .cyccount { font-size: 15.5px; }
-  .dots { gap: 8px; margin-top: 12px; }
-  .dot { width: 37px; height: 37px; border-radius: 11px; }
-  .hint { margin-top: 12px; font-size: 13.5px; }
+  .cycname { font-size: 15px; }
+  .cyccount { font-size: 14px; }
+  .dots { gap: 7px; margin-top: 12px; }
+  .dot { width: 34px; height: 34px; border-radius: 10px; }
+  .hint { margin-top: 12px; font-size: 12.5px; }
   .alltile { font-size: 13px; min-height: 38px; padding: 7px 10px; }
+}
+@media (max-width: 360px) {
+  .titlerow h1 { font-size: 26px; }
+  .he { font-size: 26px; }
+  .cardhead h2 { font-size: 15px; }
+  .rlabel { font-size: 12.5px; }
+  .bignum { font-size: 28px; }
+  .nextlink { font-size: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
