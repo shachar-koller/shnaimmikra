@@ -3,7 +3,7 @@ import { HDate, Locale } from '@hebcal/core';
 import { complete, steps, cycleYear, schedule } from './model.js';
 
 const KEY = 'shnaim-mikra-v1';
-let data = { progress: {}, israel: false, commentary: 'onkelos' };
+let data = { progress: {}, israel: false, commentary: 'onkelos', theme: undefined };
 let storageOK = true;
 try {
   const raw = JSON.parse(localStorage.getItem(KEY));
@@ -12,11 +12,23 @@ try {
       progress: raw.progress,
       israel: raw.israel === true,
       commentary: raw.commentary === 'rashi' ? 'rashi' : 'onkelos',
+      theme: raw.theme === 'dark' || raw.theme === 'light' ? raw.theme : undefined,
     };
   }
 } catch { storageOK = false; }
 
-document.documentElement.dataset.theme = 'light';
+function applyTheme() {
+  const t = data.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = t;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = t === 'dark' ? '#141412' : '#ffffff';
+}
+function toggleTheme() {
+  data.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  save(); applyTheme(); render();
+  const btn = document.querySelector('#theme');
+  if (btn) btn.focus({ preventScroll: true });
+}
 
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
@@ -26,6 +38,8 @@ const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 5.5C10 4.5 7.5 4 4.5 4v15c3 0 5.5.5 7.5 1.5 2-1 4.5-1.5 7.5-1.5V4c-3 0-5.5.5-7.5 1.5z"/><path d="M12 5.5v15"/></svg>';
 const slidersIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>';
 const arrowIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
+const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
 
 // Sefer grouping. Keys are exact Hebcal English names (full id first,
 // so hyphenated names like Lech-Lecha resolve correctly).
@@ -110,6 +124,7 @@ function render() {
   const pref = data.commentary === 'rashi' ? 'rashi' : 'onkelos';
   const targumOn = !!(p.onkelos || p.rashi);
   const activeFlavor = p.onkelos ? 'Onkelos' : p.rashi ? 'Rashi' : null;
+  const isDark = document.documentElement.dataset.theme === 'dark';
 
   document.querySelector('#app').innerHTML = `
   <a class="skip" href="#reading">Skip to reading</a>
@@ -118,6 +133,7 @@ function render() {
       <span class="brand"><span class="brandicon" aria-hidden="true">${bookIcon}</span>Shnayim Mikra</span>
       <span class="topright">
         ${hebYear ? `<span class="hebyear">${hebYear}</span>` : ''}
+        <button class="iconbtn" id="theme" aria-label="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-pressed="${isDark}">${isDark ? sunIcon : moonIcon}</button>
         <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
       </span>
     </header>
@@ -253,6 +269,7 @@ function wire(rows, weekly, item, p) {
   const browse = document.querySelector('#browse');
   if (browse) browse.onclick = () => { showAll = !showAll; render(); };
   document.querySelector('#settings').onclick = settings;
+  document.querySelector('#theme').onclick = toggleTheme;
 }
 
 function modal(html, label = 'Dialog') {
@@ -297,11 +314,13 @@ window.addEventListener('storage', e => {
     try {
       const d = JSON.parse(e.newValue);
       if (d?.progress) {
-        data = { progress: d.progress, israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos' };
+        data = { progress: d.progress, israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos', theme: d.theme === 'dark' || d.theme === 'light' ? d.theme : undefined };
+        applyTheme();
         render();
       }
     } catch { /* keep current state */ }
   }
 });
+applyTheme();
 render();
 if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js').catch(() => {});
