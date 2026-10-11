@@ -7,7 +7,8 @@
   --numbg: #f1f1e8;
   --track: #e8e8e1;
   --tilebg: #f0f0ee;
-  --currentbg: #edf3e3;
+  --selectedbg: #ecece8;
+  --currentbg: var(--selectedbg);
   --completedbg: #f0f4ee;
   --green: #224b3a;
   --hover: #f5f6f2;
@@ -163,8 +164,10 @@ main { min-width: 0; }
 .parshalist li + li { margin-top: 2px; }
 .parshalist li + li::before { content: ''; position: absolute; top: -1px; left: 12px; right: 2px; border-top: 1px solid #e9ebe7; }
 .parshalist li:has(.done)::before,
+.parshalist li:has(.selected)::before,
 .parshalist li:has(.current)::before,
 .parshalist li:has(.done) + li::before,
+.parshalist li:has(.selected) + li::before,
 .parshalist li:has(.current) + li::before { display: none; }
 .parsharow {
   display: grid;
@@ -179,8 +182,10 @@ main { min-width: 0; }
 }
 .parsharow:hover { background: var(--hover); }
 .parsharow.done { background: var(--completedbg); }
-.parsharow.current { background: var(--currentbg); }
+.parsharow.selected { background: var(--selectedbg); }
+.parsharow.selected:hover { background: var(--selectedbg); }
 .parshanum { display: inline-grid; place-items: center; width: 26px; height: 28px; color: #7b8179; font-size: 12px; font-variant-numeric: tabular-nums; }
+.parsharow.selected .parshanum,
 .parsharow.current .parshanum { background: transparent; color: var(--ink); }
 .parsharow.done .parshanum { color: var(--green); }
 .parshaen { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
@@ -189,7 +194,7 @@ main { min-width: 0; }
 
 .statusring { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--track); }
 .statusring::before { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--card); }
-.parsharow.current .statusring::before { background: var(--currentbg); }
+.parsharow.selected .statusring::before { background: var(--selectedbg); }
 .statusring.partial { background: conic-gradient(var(--green) var(--progress), var(--track) 0); }
 .statusring.complete { background: var(--green); color: #fff; }
 .statusring.complete::before { display: none; }
