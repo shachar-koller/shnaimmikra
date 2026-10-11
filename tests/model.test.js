@@ -9,6 +9,7 @@ import {
   currentParsha,
   shabbosCountdown,
   formatGregorianDate,
+  DOUBLE_PARSHIYOS,
 } from '../src/model.js';
 
 test('cycleYear determines Hebrew cycle year correctly', () => {
@@ -22,6 +23,27 @@ test('schedule returns parshiyos for year', () => {
   assert.ok(rows.length > 50);
   assert.ok(rows.some(r => r.id === 'Bereshit' || r.names.includes('Bereshit')));
   assert.ok(rows.some(r => r.id === 'Vezot Haberakhah'));
+});
+
+test('double parshiyos have separate identities, numbers, and a shared Shabbos', () => {
+  for (const israel of [false, true]) {
+    const rows = schedule(5786, israel);
+    assert.equal(rows.length, 54);
+    assert.equal(new Set(rows.map(r => r.id)).size, 54);
+    assert.deepEqual(rows.map(r => r.num), Array.from({ length: 54 }, (_, i) => i + 1));
+    assert.ok(rows.every(r => r.names.length === 1 && r.names[0] === r.id));
+    for (const [first, second] of DOUBLE_PARSHIYOS) {
+      assert.ok(rows.some(r => r.id === first));
+      assert.ok(rows.some(r => r.id === second));
+      assert.ok(!rows.some(r => r.id === `${first}-${second}`));
+    }
+    const tazria = rows.find(r => r.id === 'Tazria');
+    const metzora = rows.find(r => r.id === 'Metzora');
+    assert.equal(tazria.date.getTime(), metzora.date.getTime());
+    assert.equal(currentParsha(rows, new Date(2026, 3, 12)).id, 'Tazria');
+    assert.equal(currentParsha(rows, new Date(2026, 3, 19)).id, 'Achrei Mot');
+    assert.ok(rows.some(r => r.id === 'Lech-Lecha'));
+  }
 });
 
 test('progress completion checks all readings', () => {

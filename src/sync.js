@@ -1,4 +1,6 @@
 import { cloudEnabled, supabase } from './auth.js';
+import { DOUBLE_PARSHIYOS } from './model.js';
+import { splitDoubleProgress } from './progress.js';
 
 // Converts a local parsha state { mikra1?, mikra2?, onkelos?, rashi? }
 // to the snake_case row shape stored in Supabase.
@@ -27,9 +29,11 @@ function fromRow(row) {
 // 3-way/union merge: if a step is done locally OR in the cloud, it's done.
 // Cloud wins on conflicts of profile preferences if present, else local.
 export function mergeState(local, cloudRows = [], cloudProfile = null) {
-  const merged = { ...(local.progress || {}) };
-  for (const r of cloudRows) {
-    const k = `${r.year}:${r.parsha_id}`;
+  const merged = splitDoubleProgress(local.progress);
+  const cloudProgress = splitDoubleProgress(Object.fromEntries(
+    cloudRows.map(r => [`${r.year}:${r.parsha_id}`, fromRow(r)]),
+  ));
+  for (const [k, r] of Object.entries(cloudProgress)) {
     const curr = merged[k] || {};
     merged[k] = {
       ...(curr.mikra1 || r.mikra1 ? { mikra1: true } : {}),
@@ -43,16 +47,34 @@ export function mergeState(local, cloudRows = [], cloudProfile = null) {
     }
   }
   return {
+    ...local,
     progress: merged,
     israel: cloudProfile ? cloudProfile.israel === true : local.israel,
     commentary: cloudProfile ? (cloudProfile.commentary === 'rashi' ? 'rashi' : 'onkelos') : local.commentary,
   };
 }
 
-export async function pullCloud(userId, year) {
-  const [{ data: profile }, { data: rows, error }] = await Promise.all([
+export async function pullAllProgress(userId) {
+  const rows = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase.from('progress')
+      .select('year, parsha_id, mikra1, mikra2, onkelos, rashi')
+      .eq('user_id', userId).order('year').order('parsha_id').range(offset, offset + 999);
+    if (error) throw error;
+    rows.push(...data);
+    if (data.length < 1000) return rows;
+  }
+}
+
+export async function deleteAllProgress(userId) {
+  const { error } = await supabase.from('progress').delete().eq('user_id', userId);
+  if (error) throw error;
+}
+
+export async function pullCloud(userId) {
+  const [{ data: profile, error }, rows] = await Promise.all([
     supabase.from('profiles').select('israel, commentary').eq('id', userId).maybeSingle(),
-    supabase.from('progress').select('year, parsha_id, mikra1, mikra2, onkelos, rashi').eq('user_id', userId).eq('year', year),
+    pullAllProgress(userId),
   ]);
   if (error) throw error;
   return { profile, rows };
@@ -70,9 +92,9 @@ export async function pushProgress(userId, year, parshaId, p) {
   if (error) throw error;
 }
 
-export async function pushAllProgress(userId, localProgress) {
+export async function pushAllProgress(userId, localProgress, cloudRows = []) {
   // Used once after first-login merge: upsert every local key.
-  const rows = Object.entries(localProgress || {}).flatMap(([key, p]) => {
+  const rows = Object.entries(splitDoubleProgress(localProgress)).flatMap(([key, p]) => {
     const sep = key.indexOf(':');
     if (sep < 0) return [];
     const year = Number(key.slice(0, sep));
@@ -80,10 +102,17 @@ export async function pushAllProgress(userId, localProgress) {
     if (!Number.isInteger(year) || !parsha_id) return [];
     return [toRow(userId, year, parsha_id, p)];
   });
-  if (!rows.length) return;
   // Chunk to stay well under PostgREST limits.
   for (let i = 0; i < rows.length; i += 200) {
     const { error } = await supabase.from('progress').upsert(rows.slice(i, i + 200), { onConflict: 'user_id,year,parsha_id' });
+    if (error) throw error;
+  }
+  // Remove old combined records only after their individual replacements save.
+  // Otherwise a future sign-in could restore a checkmark that was unchecked.
+  const doubles = new Set(DOUBLE_PARSHIYOS.map(names => names.join('-')));
+  for (const row of cloudRows.filter(r => doubles.has(r.parsha_id))) {
+    const { error } = await supabase.from('progress').delete()
+      .eq('user_id', userId).eq('year', row.year).eq('parsha_id', row.parsha_id);
     if (error) throw error;
   }
 }
@@ -104,42 +133,45 @@ export async function pushProfile(userId, data) {
 // Debounced fire-and-forget writer for per-tap updates.
 export function createPushQueue() {
   const timers = new Map();
+  const active = new Set();
+  function run(key) {
+    const pending = timers.get(key);
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    timers.delete(key);
+    const request = pending.write().then(
+      () => pending.onState?.('ok'),
+      () => pending.onState?.('error'),
+    ).finally(() => active.delete(request));
+    active.add(request);
+  }
+  function enqueue(key, write, onState) {
+    if (timers.has(key)) clearTimeout(timers.get(key).timer);
+    onState?.('syncing');
+    timers.set(key, { write, onState, timer: setTimeout(() => run(key), 400) });
+  }
   return {
+    async flush() {
+      for (const key of timers.keys()) run(key);
+      await Promise.all([...active]);
+    },
+    async cancelProgress() {
+      for (const [key, pending] of timers) {
+        if (key === '__profile__') continue;
+        clearTimeout(pending.timer);
+        timers.delete(key);
+      }
+      // An in-flight write must finish before deletion, or it can restore a row.
+      await Promise.all([...active]);
+    },
     progress(userId, year, parshaId, p, onState) {
       if (!cloudEnabled || !userId) return;
       const key = `${year}:${parshaId}`;
-      if (timers.has(key)) clearTimeout(timers.get(key));
-      if (onState) onState('syncing');
-      timers.set(
-        key,
-        setTimeout(async () => {
-          timers.delete(key);
-          try {
-            await pushProgress(userId, year, parshaId, p);
-            if (onState) onState('ok');
-          } catch {
-            if (onState) onState('error');
-          }
-        }, 400),
-      );
+      enqueue(key, () => pushProgress(userId, year, parshaId, p), onState);
     },
     profile(userId, data, onState) {
       if (!cloudEnabled || !userId) return;
-      const key = '__profile__';
-      if (timers.has(key)) clearTimeout(timers.get(key));
-      if (onState) onState('syncing');
-      timers.set(
-        key,
-        setTimeout(async () => {
-          timers.delete(key);
-          try {
-            await pushProfile(userId, data);
-            if (onState) onState('ok');
-          } catch {
-            if (onState) onState('error');
-          }
-        }, 400),
-      );
+      enqueue('__profile__', () => pushProfile(userId, data), onState);
     },
   };
 }

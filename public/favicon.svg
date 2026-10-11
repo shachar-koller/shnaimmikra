@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+  <defs>
+    <radialGradient id="navy" cx="50%" cy="85%" r="95%">
+      <stop offset="0" stop-color="#0c1d2e"/>
+      <stop offset="1" stop-color="#172e49"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6dba0"/>
+      <stop offset="1" stop-color="#c99b50"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0" stop-color="#f8f2e7"/>
+      <stop offset="1" stop-color="#f6e6c7"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ad8b54"/>
+      <stop offset="1" stop-color="#8d7146"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="584" height="584" rx="128" fill="url(#navy)"/>
+  <path fill="url(#gold)" d="M112 169h-3c-8 0-13 6-13 14v217c0 8 6 14 14 14h73c41 0 75 3 95 16 9 6 8 16 22 16s17-10 26-16c20-13 54-16 91-16h73c8 0 14-6 14-14V183c0-8-5-14-13-14h-5v213c0 3-2 5-5 4-70-11-125 4-168 36-5 5-8 6-13 6s-8-1-13-6c-43-32-98-47-170-36-3 1-5-1-5-4Z"/>
+  <path fill="url(#paper)" d="M134 143c66-9 135 6 156 42 2 3 2 5 2 8v211c-42-31-97-42-160-33-3 1-4-1-4-4V150c0-4 2-6 6-7Z"/>
+  <path fill="url(#paper)" d="M466 143c-66-9-135 6-156 42-2 3-2 5-2 8v211c42-31 97-42 160-33 3 1 4-1 4-4V150c0-4-2-6-6-7Z"/>
+  <g fill="none" stroke="url(#ink)" stroke-width="12" stroke-linecap="round">
+    <path d="M160 202c38-1 74 7 104 21M160 245c38-1 74 7 104 21M160 288c38-1 74 7 104 21"/>
+    <path d="M440 202c-38-1-74 7-104 21M440 245c-38-1-74 7-104 21M440 288c-38-1-74 7-104 21"/>
+  </g>
+</svg>
