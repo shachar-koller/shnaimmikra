@@ -42,18 +42,22 @@
 [data-theme="dark"] body { background: #0e0e0d; }
 [data-theme="dark"] .iconbtn { color: var(--ink); }
 [data-theme="dark"] .rdot.on { background: #e8e8e3; color: #1a1a18; }
-[data-theme="dark"] .dot:hover { border-color: #55554f; }
-[data-theme="dark"] .dot.current { border-color: #a8b89a; }
+[data-theme="dark"] .dot:hover { background: var(--hover); border-color: transparent; }
+[data-theme="dark"] .dot.current { background: var(--currentbg); border-color: transparent; }
 [data-theme="dark"] .dot.current::after { background: #a8b89a; }
-[data-theme="dark"] .dot.done { background: #e8e8e3; border-color: #e8e8e3; }
-[data-theme="dark"] .dot.done.current { border-color: #e8e8e3; outline-color: #e8e8e3; }
+[data-theme="dark"] .dot.done { background: #e8e8e3; border-color: transparent; }
+[data-theme="dark"] .dot.done.current { background: #e8e8e3; border-color: transparent; outline: none; }
+[data-theme="dark"] .dot.done.selected { background: #e8e8e3; border-color: transparent; outline: none; }
+[data-theme="dark"] .dot.current:not(.selected):not(.done) { background: var(--tilebg); border-color: transparent; }
 [data-theme="dark"] .dotcheck { color: #1a1a18; }
-[data-theme="dark"] .dot.selected { outline-color: var(--ink); }
+[data-theme="dark"] .dot.selected { background: var(--currentbg); border-color: transparent; outline: none; }
 [data-theme="dark"] .alltile { background: #232320; }
-[data-theme="dark"] .alltile:hover { border-color: var(--ink); }
-[data-theme="dark"] .alltile.current { border-color: #a8b89a; }
-[data-theme="dark"] .alltile.done { background: #e8e8e3; color: #1a1a18; border-color: #e8e8e3; }
-[data-theme="dark"] .alltile.selected { outline-color: var(--ink); }
+[data-theme="dark"] .alltile:hover { background: var(--hover); border-color: transparent; }
+[data-theme="dark"] .alltile.current { background: var(--currentbg); border-color: transparent; }
+[data-theme="dark"] .alltile.done { background: #e8e8e3; color: #1a1a18; border-color: transparent; }
+[data-theme="dark"] .alltile.selected { background: var(--currentbg); border-color: transparent; outline: none; }
+[data-theme="dark"] .alltile.done.selected { background: #e8e8e3; color: #1a1a18; border-color: transparent; outline: none; }
+[data-theme="dark"] .alltile.current:not(.selected):not(.done) { background: #232320; border-color: transparent; }
 [data-theme="dark"] .dialog { background: var(--card); }
 [data-theme="dark"] .setting-row select { background: var(--card); color: var(--ink); }
 [data-theme="dark"] .primary { background: #e8e8e3; color: #161616; }
@@ -136,10 +140,7 @@ h1, h2, h3, p { margin: 0; }
 @media (max-width: 640px) { .yearspace { min-height: 28px; } }
 .nextlabel { font-size: 18px; color: var(--muted); }
 .nextrow { margin-top: 2px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.nextlink { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; text-align: start; border-radius: 6px; }
-.nextlink.as-text { color: var(--muted); font-weight: 550; }
-.nextarrow { display: inline-grid; place-items: center; }
-.nextarrow svg { width: 22px; height: 22px; }
+.nextcount { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; text-align: start; }
 
 /* Cycle */
 .cycle { margin-top: 16px; }
@@ -151,28 +152,35 @@ h1, h2, h3, p { margin: 0; }
 .cycname { font-size: 20px; font-weight: 700; }
 .cyccount { font-size: 19px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .dots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.dot { position: relative; width: 44px; height: 44px; border-radius: 13px; background: var(--tilebg); border: 1px solid var(--tileline); display: inline-grid; place-items: center; }
-.dot:hover { border-color: #b9b9b6; }
-.dot.current { background: var(--currentbg); border: 2.5px solid #2e2e2c; }
+.dot { position: relative; width: 44px; height: 44px; border-radius: 13px; background: var(--tilebg); border: 1px solid transparent; display: inline-grid; place-items: center; }
+.dot:hover { background: var(--hover); border-color: transparent; }
+.dot.current { background: var(--currentbg); border-color: transparent; }
 .dot.current::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: #2e2e2c; }
-.dot.done { background: #1d1d1c; border-color: #1d1d1c; }
+.dot.done { background: #1d1d1c; border-color: transparent; }
 .dot.done::after { content: none; }
-.dot.done.current { border: 2.5px solid #1d1d1c; outline: 2px solid #1d1d1c; outline-offset: 2px; }
+.dot.done.current { background: #1d1d1c; border-color: transparent; outline: none; }
 .dot.started:not(.done):not(.current)::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #8d8d8b; }
 .dotcheck { display: inline-grid; place-items: center; color: #fff; }
 .dotcheck svg { width: 18px; height: 18px; }
-.dot.selected { outline: 2px solid #141414; outline-offset: 2px; }
+.dot.selected { background: var(--currentbg); border-color: transparent; outline: none; }
+.dot.done.selected { background: #1d1d1c; border-color: transparent; }
+/* Current week, when viewing a different parsha: neutral tile, keeps its dot marker. Green = selected. */
+.dot.current:not(.selected):not(.done) { background: var(--tilebg); border-color: transparent; }
 
 .alllist { margin-top: 6px; display: grid; gap: 14px; }
 .allgroup { margin-top: 8px; }
 .allname { font-size: 15px; font-weight: 700; }
 .allname .allcount { color: var(--muted); font-weight: 550; margin-inline-start: 6px; font-variant-numeric: tabular-nums; }
 .alltiles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.alltile { border: 1px solid var(--tileline); background: #f6f6f4; border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; min-height: 40px; }
-.alltile:hover { border-color: #141414; }
-.alltile.current { background: var(--currentbg); border: 2px solid #2e2e2c; }
-.alltile.done { background: #1d1d1c; color: #fff; border-color: #1d1d1c; }
-.alltile.selected { outline: 2px solid #141414; outline-offset: 1px; }
+.alltile { border: 1px solid transparent; background: #f6f6f4; border-radius: 10px; padding: 8px 12px; font-size: 14px; font-weight: 600; min-height: 40px; }
+.alltile:hover { background: var(--hover); border-color: transparent; }
+.alltile.current { background: var(--currentbg); border-color: transparent; }
+.alltile.done { background: #1d1d1c; color: #fff; border-color: transparent; }
+.alltile.selected { background: var(--currentbg); border-color: transparent; outline: none; }
+.alltile.done.selected { background: #1d1d1c; color: #fff; border-color: transparent; }
+/* Current week, when viewing a different parsha: neutral tile with a dot marker. Green = selected. */
+.alltile.current:not(.selected):not(.done) { background: #f6f6f4; border-color: transparent; }
+.alltile.current:not(.selected):not(.done)::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; margin-inline-start: 8px; vertical-align: middle; }
 
 footer { margin-top: 18px; font-size: 13px; color: var(--faint); min-height: 18px; }
 footer .warn { color: #9a5b00; }
@@ -189,6 +197,51 @@ footer .warn { color: #9a5b00; }
 .setting-row select { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 8px 10px; font-size: 14px; font-weight: 600; min-height: 44px; }
 .primary { width: 100%; padding: 12px; border-radius: 10px; background: #161616; color: #fff; font-size: 15px; font-weight: 700; min-height: 48px; margin-top: 10px; }
 .primary:hover { background: #000; }
+.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Auth */
+.signinbtn { font-size: 14px; font-weight: 700; padding: 9px 14px; border-radius: 999px; background: #161616; color: #fff; min-height: 40px; white-space: nowrap; }
+.signinbtn:hover { background: #000; }
+[data-theme="dark"] .signinbtn { background: #e8e8e3; color: #161616; }
+.avatarbtn { width: 40px; height: 40px; border-radius: 50%; background: #161616; color: #fff; font-size: 17px; font-weight: 700; display: inline-grid; place-items: center; flex-shrink: 0; }
+[data-theme="dark"] .avatarbtn { background: #e8e8e3; color: #161616; }
+/* Standard "Sign in with Google" button (Google Identity branding):
+   deliberately NOT themed like the app — white pill, gray border, G logo. */
+.gsi-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 0 16px;
+  background: #fff;
+  border: 1px solid #747775;
+  border-radius: 999px;
+  color: #1f1f1f;
+  font-family: 'Roboto', Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.25px;
+  white-space: nowrap;
+}
+.gsi-btn:hover { background: #f2f2f2; }
+.gsi-btn:active { background: #e6e6e6; }
+.gsi-btn[hidden] { display: none; }
+/* Native Google button slot (Google Identity Services renders its own
+   branded button here; it shows YOUR app on the consent screen). */
+.giswrap { margin-top: 14px; min-height: 44px; display: flex; justify-content: center; }
+.giswrap:empty { display: none; }
+#gis-btn { width: 100%; display: flex; justify-content: center; }
+.gsi-icon { display: inline-grid; place-items: center; flex-shrink: 0; }
+.gsi-icon svg { width: 20px; height: 20px; display: block; }
+[data-theme="dark"] .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
+[data-theme="dark"] .gsi-btn:hover { background: #1f1f20; }
+[data-theme="dark"] .gsi-btn:active { background: #2a2a2b; }
+.dialog-note { margin-top: 10px; }
+.dialog code { font-size: 12.5px; }
+footer { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
 /* ---------- Compact mobile pass: keep the mock's 2-up cards + full-width cycle ---------- */
 @media (max-width: 640px) {
@@ -221,8 +274,7 @@ footer .warn { color: #9a5b00; }
   .bigsub { font-size: 12.5px; }
   .yearspace { min-height: 14px; }
   .nextlabel { font-size: 12.5px; }
-  .nextlink { font-size: 15px; }
-  .nextarrow svg { width: 15px; height: 15px; }
+  .nextcount { font-size: 15px; }
   .cyclehead { flex-wrap: nowrap; }
   .browselink { font-size: 12.5px; white-space: nowrap; }
   .cyclesub { margin-top: 10px; }
@@ -238,7 +290,7 @@ footer .warn { color: #9a5b00; }
   .cardhead h2 { font-size: 15px; }
   .rlabel { font-size: 12.5px; }
   .bignum { font-size: 28px; }
-  .nextlink { font-size: 14px; }
+  .nextcount { font-size: 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
