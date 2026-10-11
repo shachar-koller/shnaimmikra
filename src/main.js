@@ -427,7 +427,7 @@ function modal(html, label = 'Dialog') {
   document.addEventListener('keydown', function esc(e) {
     if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
   });
-  const first = box.querySelector('button.primary') || box.querySelector('.gsi-btn') || box.querySelector('.close');
+  const first = box.querySelector('button.primary') || box.querySelector('.gsi-btn:not([hidden])') || box.querySelector('.close');
   if (first) first.focus({ preventScroll: true });
 }
 

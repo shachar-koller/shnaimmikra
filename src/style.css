@@ -228,6 +228,12 @@ footer .warn { color: #9a5b00; }
 }
 .gsi-btn:hover { background: #f2f2f2; }
 .gsi-btn:active { background: #e6e6e6; }
+.gsi-btn[hidden] { display: none; }
+/* Native Google button slot (Google Identity Services renders its own
+   branded button here; it shows YOUR app on the consent screen). */
+.giswrap { margin-top: 14px; min-height: 44px; display: flex; justify-content: center; }
+.giswrap:empty { display: none; }
+#gis-btn { width: 100%; display: flex; justify-content: center; }
 .gsi-icon { display: inline-grid; place-items: center; flex-shrink: 0; }
 .gsi-icon svg { width: 20px; height: 20px; display: block; }
 [data-theme="dark"] .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
