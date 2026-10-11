@@ -26,7 +26,8 @@ Required vars (`VITE_` prefix = exposed to browser, safe for anon key):
 | Var | Where |
 |---|---|
 | `VITE_SUPABASE_URL` | Dashboard → Project Settings → API → Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Same page → `anon` `public` key |
+| `VITE_SUPABASE_ANON_KEY` | Same page → `anon`/`publishable` key |
+| `VITE_GOOGLE_CLIENT_ID` | Google Cloud → Credentials → Web client ID (for the direct Google button; falls back to redirect flow without it) |
 | `VITE_AUTH_REDIRECT` (optional) | e.g. `https://your-app.vercel.app` — OAuth return URL. Defaults to `window.location.origin`. |
 
 Never commit `.env` (already gitignored). Only the **anon** key goes in the
@@ -36,10 +37,19 @@ frontend — never the `service_role` key.
 
 ### Google (free, ~10 min) — the only provider
 1. https://console.cloud.google.com → create OAuth client (Web):
-   Authorized redirect URI = `https://<your-project-ref>.supabase.co/auth/v1/callback`.
+   - Authorized redirect URI = `https://<your-project-ref>.supabase.co/auth/v1/callback`
+     (needed for the redirect fallback flow).
+   - Authorized JavaScript origins = your app origins, e.g.
+     `https://your-app.vercel.app` (+ `http://localhost:5173` for dev).
+     This powers the direct Google button, whose consent screen shows YOUR
+     app name instead of the `*.supabase.co` domain.
 2. Supabase Dashboard → Authentication → Providers → Google → enable,
-   paste Client ID + Secret.
-3. Authentication → URL Configuration → add your Site URL
+   paste Client ID + Secret (Supabase validates ID tokens against it).
+3. Copy the **Client ID** (`….apps.googleusercontent.com`) into
+   `VITE_GOOGLE_CLIENT_ID` in `.env` and in Vercel env vars, redeploy.
+   Without it the app falls back to the redirect flow (works, but Google
+   shows the `*.supabase.co` domain on the consent screen).
+4. Authentication → URL Configuration → add your Site URL
    (`http://localhost:5173` for dev, your Vercel URL for prod) to Redirect URLs.
 
 Sign-in is Google-only — no other providers are wired.
