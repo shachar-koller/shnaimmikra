@@ -1,62 +1,57 @@
-import { supabase, cloudEnabled } from './auth.js';
+import { cloudEnabled, supabase } from './auth.js';
 
-// Cloud sync layer. Merge rule (per user choice): checkmarks are unioned (OR)
-// so no progress is ever lost; conflicting *settings* take the server value.
+// Converts a local parsha state { mikra1?, mikra2?, onkelos?, rashi? }
+// to the snake_case row shape stored in Supabase.
+function toRow(userId, year, parshaId, p) {
+  return {
+    user_id: userId,
+    year,
+    parsha_id: parshaId,
+    mikra1: Boolean(p.mikra1),
+    mikra2: Boolean(p.mikra2),
+    onkelos: Boolean(p.onkelos),
+    rashi: Boolean(p.rashi),
+    updated_at: new Date().toISOString(),
+  };
+}
 
-export const SYNC = { IDLE: 'idle', SYNCING: 'syncing', OK: 'ok', ERROR: 'error' };
+function fromRow(row) {
+  const p = {};
+  if (row.mikra1) p.mikra1 = true;
+  if (row.mikra2) p.mikra2 = true;
+  if (row.onkelos) p.onkelos = true;
+  if (row.rashi) p.rashi = true;
+  return p;
+}
 
-const toRow = (userId, year, id, p) => ({
-  user_id: userId,
-  year,
-  parsha_id: id,
-  mikra1: !!p.mikra1,
-  mikra2: !!p.mikra2,
-  onkelos: !!p.onkelos,
-  rashi: !!p.rashi,
-});
-
-const fromRows = rows => {
-  const progress = {};
-  for (const r of rows || []) {
-    if (!r.mikra1 && !r.mikra2 && !r.onkelos && !r.rashi) continue;
-    progress[`${r.year}:${r.parsha_id}`] = {
-      mikra1: !!r.mikra1,
-      mikra2: !!r.mikra2,
-      ...(r.onkelos ? { onkelos: true } : {}),
-      ...(r.rashi ? { rashi: true } : {}),
+// 3-way/union merge: if a step is done locally OR in the cloud, it's done.
+// Cloud wins on conflicts of profile preferences if present, else local.
+export function mergeState(local, cloudRows = [], cloudProfile = null) {
+  const merged = { ...(local.progress || {}) };
+  for (const r of cloudRows) {
+    const k = `${r.year}:${r.parsha_id}`;
+    const curr = merged[k] || {};
+    merged[k] = {
+      ...(curr.mikra1 || r.mikra1 ? { mikra1: true } : {}),
+      ...(curr.mikra2 || r.mikra2 ? { mikra2: true } : {}),
+      ...(curr.onkelos || r.onkelos ? { onkelos: true } : {}),
+      ...(curr.rashi || r.rashi ? { rashi: true } : {}),
     };
-  }
-  return progress;
-};
-
-// First login on a device: union local + cloud checkmarks, server wins settings.
-export function mergeState(local, cloudProgressRows, cloudProfile) {
-  const cloudProgress = fromRows(cloudProgressRows);
-  const merged = { ...cloudProgress };
-  for (const [k, p] of Object.entries(local.progress || {})) {
-    const c = merged[k];
-    if (!c) merged[k] = { ...p };
-    else {
-      merged[k] = {
-        mikra1: c.mikra1 || p.mikra1,
-        mikra2: c.mikra2 || p.mikra2,
-        onkelos: c.onkelos || p.onkelos,
-        rashi: c.rashi || p.rashi,
-      };
-      if (!merged[k].mikra1 && !merged[k].mikra2 && !merged[k].onkelos && !merged[k].rashi) delete merged[k];
+    // Clean up empty objects
+    if (!merged[k].mikra1 && !merged[k].mikra2 && !merged[k].onkelos && !merged[k].rashi) {
+      delete merged[k];
     }
   }
   return {
     progress: merged,
     israel: cloudProfile ? cloudProfile.israel === true : local.israel,
     commentary: cloudProfile ? (cloudProfile.commentary === 'rashi' ? 'rashi' : 'onkelos') : local.commentary,
-    theme: cloudProfile ? (cloudProfile.theme ?? local.theme) : local.theme,
   };
 }
 
 export async function pullCloud(userId, year) {
   const [{ data: profile }, { data: rows, error }] = await Promise.all([
-    supabase.from('profiles').select('israel, commentary, theme').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('israel, commentary').eq('id', userId).maybeSingle(),
     supabase.from('progress').select('year, parsha_id, mikra1, mikra2, onkelos, rashi').eq('user_id', userId).eq('year', year),
   ]);
   if (error) throw error;
@@ -100,7 +95,6 @@ export async function pushProfile(userId, data) {
       id: userId,
       israel: data.israel === true,
       commentary: data.commentary === 'rashi' ? 'rashi' : 'onkelos',
-      theme: data.theme === 'dark' || data.theme === 'light' ? data.theme : null,
     },
     { onConflict: 'id' },
   );
@@ -113,34 +107,38 @@ export function createPushQueue() {
   return {
     progress(userId, year, parshaId, p, onState) {
       if (!cloudEnabled || !userId) return;
-      const k = `${year}:${parshaId}`;
-      clearTimeout(timers.get(k));
-      onState?.('syncing');
+      const key = `${year}:${parshaId}`;
+      if (timers.has(key)) clearTimeout(timers.get(key));
+      if (onState) onState('syncing');
       timers.set(
-        k,
+        key,
         setTimeout(async () => {
+          timers.delete(key);
           try {
             await pushProgress(userId, year, parshaId, p);
-            onState?.('ok');
+            if (onState) onState('ok');
           } catch {
-            onState?.('error');
+            if (onState) onState('error');
           }
-        }, 600),
+        }, 400),
       );
     },
     profile(userId, data, onState) {
       if (!cloudEnabled || !userId) return;
-      clearTimeout(timers.get('__profile'));
+      const key = '__profile__';
+      if (timers.has(key)) clearTimeout(timers.get(key));
+      if (onState) onState('syncing');
       timers.set(
-        '__profile',
+        key,
         setTimeout(async () => {
+          timers.delete(key);
           try {
             await pushProfile(userId, data);
-            onState?.('ok');
+            if (onState) onState('ok');
           } catch {
-            onState?.('error');
+            if (onState) onState('error');
           }
-        }, 600),
+        }, 400),
       );
     },
   };

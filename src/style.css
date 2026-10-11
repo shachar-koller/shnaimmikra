@@ -22,23 +22,7 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
-[data-theme="dark"] {
-  --page: #141412;
-  --card: #1e1e1c;
-  --ink: #f1f1ee;
-  --muted: #a3a39f;
-  --faint: #7c7c78;
-  --line: #2d2d2a;
-  --numbg: #2a2a27;
-  --dotgray: #6e6e6a;
-  --track: #2d2d2a;
-  --tilebg: #262624;
-  --tileline: #34342f;
-  --currentbg: #2e3a24;
-  --hover: #2a2a27;
-  --barfill: #e6e6e2;
-  color-scheme: dark;
-}
+
 html {
   scroll-behavior: smooth;
   background: var(--page);
@@ -64,43 +48,7 @@ body {
 }
 @media (min-width: 821px) {
   body { background: #fff; }
-  [data-theme="dark"] body { background: #0e0e0d; }
 }
-
-[data-theme="dark"] html,
-[data-theme="dark"] body {
-  background: var(--page);
-}
-@media (min-width: 821px) {
-  [data-theme="dark"] body {
-    background: #0e0e0d;
-  }
-}
-
-[data-theme="dark"] .iconbtn { color: var(--ink); }
-[data-theme="dark"] .rdot.on { background: #e8e8e3; color: #1a1a18; }
-[data-theme="dark"] .dot:hover { background: var(--hover); border-color: transparent; }
-[data-theme="dark"] .dot.current { background: var(--currentbg); border-color: transparent; }
-[data-theme="dark"] .dot.current::after { background: #a8b89a; }
-[data-theme="dark"] .dot.done { background: #e8e8e3; border-color: transparent; }
-[data-theme="dark"] .dot.done.current { background: #e8e8e3; border-color: transparent; outline: none; }
-[data-theme="dark"] .dot.done.selected { background: #e8e8e3; border-color: transparent; outline: none; }
-[data-theme="dark"] .dot.current:not(.selected):not(.done) { background: var(--tilebg); border-color: transparent; }
-[data-theme="dark"] .dotcheck { color: #1a1a18; }
-[data-theme="dark"] .dot.selected { background: var(--currentbg); border-color: transparent; outline: none; }
-[data-theme="dark"] .alltile { background: #232320; }
-[data-theme="dark"] .alltile:hover { background: var(--hover); border-color: transparent; }
-[data-theme="dark"] .alltile.current { background: var(--currentbg); border-color: transparent; }
-[data-theme="dark"] .alltile.done { background: #e8e8e3; color: #1a1a18; border-color: transparent; }
-[data-theme="dark"] .alltile.selected { background: var(--currentbg); border-color: transparent; outline: none; }
-[data-theme="dark"] .alltile.done.selected { background: #e8e8e3; color: #1a1a18; border-color: transparent; outline: none; }
-[data-theme="dark"] .alltile.current:not(.selected):not(.done) { background: #232320; border-color: transparent; }
-[data-theme="dark"] .dialog { background: var(--card); }
-[data-theme="dark"] .setting-row select { background: var(--card); color: var(--ink); }
-[data-theme="dark"] .primary { background: #e8e8e3; color: #161616; }
-[data-theme="dark"] .primary:hover { background: #fff; }
-[data-theme="dark"] footer .warn { color: #d9a648; }
-[data-theme="dark"] .sefertab.active { background: #e8e8e3; color: #161616; }
 
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 6px; }
@@ -257,9 +205,7 @@ footer .warn { color: #9a5b00; }
 /* Auth */
 .signinbtn { font-size: 14px; font-weight: 700; padding: 9px 14px; border-radius: 999px; background: #161616; color: #fff; min-height: 40px; white-space: nowrap; }
 .signinbtn:hover { background: #000; }
-[data-theme="dark"] .signinbtn { background: #e8e8e3; color: #161616; }
 .avatarbtn { width: 40px; height: 40px; border-radius: 50%; background: #161616; color: #fff; font-size: 17px; font-weight: 700; display: inline-grid; place-items: center; flex-shrink: 0; }
-[data-theme="dark"] .avatarbtn { background: #e8e8e3; color: #161616; }
 .gsi-btn {
   display: flex;
   align-items: center;
@@ -282,9 +228,6 @@ footer .warn { color: #9a5b00; }
 .gsi-btn:hover { background: #f2f2f2; }
 .gsi-btn:active { background: #e6e6e6; }
 .gsi-btn[hidden] { display: none; }
-[data-theme="dark"] .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
-[data-theme="dark"] .gsi-btn:hover { background: #1f1f20; }
-[data-theme="dark"] .gsi-btn:active { background: #2a2a2b; }
 .giswrap { margin-top: 14px; min-height: 44px; display: flex; justify-content: center; }
 .giswrap:empty { display: none; }
 #gis-btn { width: 100%; display: flex; justify-content: center; }
