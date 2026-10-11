@@ -93,93 +93,63 @@ main { min-width: 0; }
 .bar { height: 6px; background: var(--track); border-radius: 999px; overflow: hidden; margin-top: 8px; }
 .bar > div { height: 100%; width: 0; background: var(--barfill); border-radius: 999px; }
 
-/* Reading Checklist */
-.reads { list-style: none; margin: 0; padding: 0; }
-.readrow {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 14px;
-  text-align: start;
-  padding: 0;
-  border-radius: 10px;
-  min-height: 44px;
-  cursor: pointer;
-  user-select: none;
-}
-.readrow:hover { background: var(--hover); }
-.readrow:has(:focus-visible), .readrow:focus-visible { background: var(--hover); }
-.rnum {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--numbg);
-  display: inline-grid;
-  place-items: center;
-  font-size: 16px;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.rlabel {
-  flex: 1;
-  min-width: 0;
-  font-size: 17px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-.reads li { position: relative; }
-.reads li + li::before { content: ''; position: absolute; top: 0; left: 46px; right: 0; border-top: 1px solid #e8e9e5; }
-.commentaryrow { display: flex; align-items: center; gap: 14px; padding-top: 6px; }
+/* Reading tiles: the whole tile is the checkbox target. */
+.reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.readingstep, .commentaryrow { display: flex; align-items: center; gap: 12px; }
+.rnum { width: 28px; height: 28px; border-radius: 50%; background: var(--numbg); display: inline-grid; place-items: center; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+.readrow { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 48px; text-align: start; border-radius: 8px; user-select: none; }
+.readingchoice { flex: 1; padding: 9px 12px; background: #f0f2ec; border: 1px solid #e6e9e0; transition: background 160ms ease, border-color 160ms ease; }
+.readingchoice:hover { background: #e9ede3; }
+.readingchoice.on { background: #edf3e8; border-color: #d3dfcb; color: var(--green); }
+.rlabel { min-width: 0; font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+.rcheck { position: relative; display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1.5px solid #aeb9a5; border-radius: 8px; background: #fff; color: #fff; flex-shrink: 0; }
+.rcheck.on { background: var(--green); border-color: var(--green); }
+.rcheck svg { width: 17px; height: 17px; }
 .commentaryoptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; flex: 1; min-width: 0; padding: 3px; background: #f0f2ec; border: 1px solid #e6e9e0; border-radius: 8px; }
-.commentaryoptions .commentarychoice { justify-content: center; gap: 7px; min-height: 44px; padding: 6px; background: transparent; border-radius: 5px; }
-.commentarychoice .rlabel { flex: 0 0 auto; }
-.commentarycheck { display: inline-grid; place-items: center; width: 14px; height: 14px; flex-shrink: 0; color: var(--green); }
-.commentarycheck svg { width: 14px; height: 14px; }
+.commentaryoptions .commentarychoice { justify-content: center; gap: 7px; min-height: 42px; padding: 6px; background: transparent; border-radius: 5px; }
+.commentarycheck { display: inline-grid; place-items: center; width: 16px; height: 16px; flex-shrink: 0; color: var(--green); }
+.commentarycheck svg { width: 16px; height: 16px; }
 .commentaryoptions .commentarychoice:hover { background: #f8f9f6; }
 .commentaryoptions .commentarychoice.on { background: #fff; color: var(--green); box-shadow: 0 1px 3px rgba(33, 53, 27, 0.09); }
-.commentaryoptions .commentarychoice.unavailable { background: transparent; color: #9ca493; }
-.commentarychoice:focus-visible { outline-color: var(--green); }
-.readrow.unavailable { color: #a5aaa4; cursor: default; }
-.readrow.unavailable:hover { background: transparent; }
-.readrow.unavailable .rcheck { cursor: default; }
-.readrow.unavailable .rcheck::before,
-.readrow.unavailable:hover .rcheck::before { border-color: #e0e3de; background: #f7f8f5; }
-.rcheck {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  color: #fff;
-}
-.rcheck::before { content: ''; position: absolute; width: 24px; height: 24px; border-radius: 50%; border: 1px solid #c6c9c5; }
-.readrow:hover .rcheck:not(.on)::before { border-color: #858b84; }
-.rcheck.on::before { background: var(--green); border-color: var(--green); }
-.rcheck svg { position: relative; width: 15px; height: 15px; }
-.footrule { border: 0; border-top: 1px solid var(--line); margin: 12px 0 0; }
-.resetrow { margin-top: 10px; }
-.resetlink { font-size: 13.5px; font-weight: 600; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.commentaryoptions .commentarychoice.unavailable { background: transparent; color: #9ca493; cursor: default; }
+.readrow:focus-visible { outline-color: var(--green); }
+.resetrow { margin-top: 7px; padding-left: 40px; line-height: 18px; }
+.resetlink { font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .resetlink:disabled { visibility: hidden; }
+.just-checked .rcheck, .just-checked .commentarycheck { animation: check-pop 280ms ease-out; }
+.just-checked svg path { stroke-dasharray: 30; animation: check-draw 230ms ease-out; }
+@keyframes check-pop { 0% { transform: scale(.88); } 55% { transform: scale(1.09); } 100% { transform: scale(1); } }
+@keyframes check-draw { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .just-checked .rcheck, .just-checked .commentarycheck, .just-checked svg path { animation: none; }
+  .readingchoice { transition: none; }
+}
 
-/* Summary cards */
+/* Weekly and yearly progress share one compact summary. */
 .sidecol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.kicker { font-size: 11px; font-weight: 600; letter-spacing: 0.055em; color: var(--muted); }
-.bignum { margin-top: 5px; font-size: 32px; line-height: 1.1; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.bignum span { font-size: 19px; font-weight: 550; color: var(--muted); }
-.bigsub { margin-top: 7px; font-size: 13px; color: var(--muted); }
-.shabbos-count { margin-top: 8px; font-size: 23px; line-height: 1.2; font-weight: 750; letter-spacing: -0.025em; }
+.kicker { font-size: 13px; line-height: 1.3; font-weight: 500; letter-spacing: 0; color: var(--muted); }
+.progressheading { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.progressvalue { font-size: 20px; line-height: 1.2; font-weight: 700; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; }
+.progressvalue span { font-size: 13px; font-weight: 500; color: var(--muted); }
+.weeksegments { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 8px; }
+.weeksegments span { height: 5px; border-radius: 999px; background: var(--track); }
+.weeksegments .filled { background: var(--green); }
+.yearprogress { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.bigsub { margin-top: 5px; font-size: 12px; color: var(--muted); }
+.shabbos { display: flex; flex-direction: column; justify-content: center; }
+.shabbos-count { margin-top: 8px; font-size: 26px; line-height: 1.2; font-weight: 750; letter-spacing: -0.025em; }
 .shabbos-date { margin-top: 6px; font-size: 14px; color: var(--muted); }
 
 /* Sefer browser */
 .cycle { margin-top: 12px; padding: 12px 14px 8px; }
-.sefertabs { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.sefertabs { position: relative; display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--track) transparent; padding: 3px 2px 6px; scroll-padding-inline: 2px; }
 .sefertab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 5px 18px;
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 5px 14px;
   border-radius: 18px;
   background: var(--tilebg);
   color: #555854;
@@ -191,7 +161,6 @@ main { min-width: 0; }
 .sefertab.active { background: var(--green); color: #fff; }
 .cyclesub { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 14px 2px 8px; }
 .cycname { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; min-width: 0; font-size: 21px; line-height: 1.25; font-weight: 700; letter-spacing: -0.025em; }
-.seferhe { border-inline-end: 1px solid #c6c9c3; padding-inline-end: 10px; color: var(--muted); font-size: 16px; font-weight: 400; letter-spacing: normal; }
 .cyccount { flex-shrink: 0; color: #555854; font-size: 19px; line-height: 1.25; font-variant-numeric: tabular-nums; }
 .parshalist { list-style: none; margin: 0; padding: 0; }
 .parshalist li { position: relative; }
@@ -203,7 +172,7 @@ main { min-width: 0; }
 .parshalist li:has(.current) + li::before { display: none; }
 .parsharow {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) minmax(0, 0.62fr) 60px;
+  grid-template-columns: 26px minmax(0, 1fr) 60px 22px;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -215,15 +184,20 @@ main { min-width: 0; }
 .parsharow:hover { background: var(--hover); }
 .parsharow.done { background: var(--completedbg); }
 .parsharow.current { background: var(--currentbg); }
-.parshanum { display: inline-grid; place-items: center; width: 30px; height: 28px; border-radius: 6px; background: var(--tilebg); color: #505550; font-size: 13px; font-variant-numeric: tabular-nums; }
-.parshanum svg { width: 19px; height: 19px; }
+.parshanum { display: inline-grid; place-items: center; width: 26px; height: 28px; color: #7b8179; font-size: 12px; font-variant-numeric: tabular-nums; }
 .parsharow.current .parshanum { background: transparent; color: var(--ink); }
-.parsharow.done .parshanum { background: var(--green); color: #fff; }
+.parsharow.done .parshanum { color: var(--green); }
 .parshaen { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
-.parshahe { color: #555854; font-size: 16px; line-height: 1.3; text-align: left; overflow-wrap: anywhere; }
-.parsharow.current .parshahe { color: var(--ink); }
 .parshastatus { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 12px; white-space: nowrap; }
 .current-dot { display: inline-block; width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; background: var(--green); }
+
+.statusring { position: relative; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--track); }
+.statusring::before { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: var(--card); }
+.parsharow.current .statusring::before { background: var(--currentbg); }
+.statusring.partial { background: conic-gradient(var(--green) var(--progress), var(--track) 0); }
+.statusring.complete { background: var(--green); color: #fff; }
+.statusring.complete::before { display: none; }
+.statusring svg { position: relative; width: 13px; height: 13px; }
 
 footer { margin-top: 18px; font-size: 13px; color: var(--muted); min-height: 44px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; align-items: center; }
 footer .warn { color: #9a5b00; }
@@ -283,26 +257,17 @@ footer .warn { color: #9a5b00; }
   .card { padding: 14px; }
   .cycle { padding: 12px 14px 8px; }
   .bar { height: 5px; }
-  .readrow { min-height: 36px; }
-  .rnum { width: 30px; height: 30px; font-size: 14px; }
   .rlabel { font-size: 15px; }
-  .rcheck { width: 36px; height: 36px; }
-  .rcheck::before { width: 22px; height: 22px; }
-  .reads li + li::before { left: 44px; }
   .cycname { font-size: 18px; gap: 9px; }
-  .seferhe { font-size: 14px; padding-inline-end: 9px; }
   .cyccount { font-size: 18px; }
-  .sefertab { min-height: 30px; font-size: 12px; padding-inline: 10px; }
-  .parsharow { grid-template-columns: 62px minmax(0, 1fr) minmax(0, 0.6fr) 54px; gap: 0; padding: 3px 8px; min-height: 32px; }
-  .parshanum { width: 28px; height: 26px; }
-  .parshaen { font-size: 12px; }
-  .parshahe { font-size: 14px; }
+  .sefertab { min-height: 40px; font-size: 12px; padding-inline: 12px; }
+  .parsharow { grid-template-columns: 22px minmax(0, 1fr) 54px 22px; gap: 8px; padding: 5px 6px; min-height: 40px; }
+  .parshanum { width: 22px; height: 26px; }
+  .parshaen { font-size: 13px; }
   .parshastatus { font-size: 11px; gap: 5px; }
-  .kicker { font-size: 10px; line-height: 1.3; }
-  .bignum { font-size: 28px; }
-  .bignum span { font-size: 17px; }
+  .kicker { font-size: 12px; }
   .bigsub { font-size: 11px; }
-  .shabbos-count { font-size: 18px; }
+  .shabbos-count { font-size: 21px; }
   .shabbos-date { font-size: 13px; }
 }
 @media (max-width: 380px) {
@@ -315,21 +280,16 @@ footer .warn { color: #9a5b00; }
   .cycle { padding: 12px 10px 8px; }
   .sefertab { padding-inline: 10px; }
   .cycname { font-size: 18px; }
-  .seferhe { font-size: 14px; }
-  .parsharow { grid-template-columns: 50px minmax(0, 1fr) minmax(0, 0.6fr) 52px; gap: 0; padding-inline: 6px; }
-  .parshanum { width: 26px; height: 27px; }
-  .shabbos-count { font-size: 17px; }
+  .shabbos-count { font-size: 20px; }
 }
 @media (min-width: 601px) {
-  .card { padding: 22px 24px; }
+  .card { padding: 16px 20px; }
   .sidecol { gap: 16px; }
   .cards { gap: 16px; margin-top: 22px; }
-  .readrow { min-height: 54px; }
   .cycle { margin-top: 16px; }
   .sefertab { min-height: 40px; padding-inline: 22px; font-size: 14px; }
   .cyclesub { margin-top: 20px; }
-  .parsharow { grid-template-columns: 40px minmax(0, 1fr) minmax(0, 0.8fr) 76px; min-height: 48px; gap: 16px; }
+  .parsharow { grid-template-columns: 26px minmax(0, 1fr) 76px 22px; min-height: 44px; gap: 12px; }
   .parshaen { font-size: 16px; }
-  .parshahe { font-size: 18px; }
   .parshastatus { font-size: 14px; }
 }

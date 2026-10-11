@@ -21,9 +21,8 @@ test('reading progress updates the list and survives a reload', async ({ page })
   await expect(page.locator('.parshalist li:nth-child(-n+6) .parshaen')).toHaveText([
     'Bereishis', 'Noach', 'Lech Lecha', 'Vayeira', 'Chayei Sarah', 'Toldos',
   ]);
-  await expect(page.locator('.parshalist li:nth-child(-n+6) .parshahe')).toHaveText([
-    'בראשית', 'נח', 'לך לך', 'וירא', 'חיי שרה', 'תולדות',
-  ]);
+  await expect(page.locator('.cycle [lang="he"]')).toHaveCount(0);
+  await expect(page.locator('.statusring.empty')).toHaveCount(12);
   await expect(page.locator('.parsharow.current')).toHaveAttribute('data-parsha', 'Noach');
   await expect(page.locator('.cyccount')).toHaveText('0/12');
 
@@ -81,13 +80,18 @@ test('partial progress remains visible for the current and selected readings', a
   const weekly = page.locator('.parsharow[data-parsha="Noach"]');
   await page.locator('[data-reading="mikra1"]').click();
   await expect(weekly.locator('.parshastatus')).toHaveText('1/3');
+  await expect(weekly.locator('.statusring')).toHaveClass(/partial/);
+  await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('1 / 3');
   await expect(weekly.locator('.current-dot')).toHaveCount(1);
   await page.locator('[data-reading="mikra2"]').click();
   await expect(weekly.locator('.parshastatus')).toHaveText('2/3');
+  await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
   const selected = page.locator('.parsharow[data-parsha="Bereshit"]');
   await page.locator('[data-reading="rashi"]').click();
   await expect(selected.locator('.parshastatus')).toHaveText('1/3');
+  // The summary continues to describe this week while editing another parsha.
+  await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
   await expect(selected).toHaveAccessibleName(/1 of 3 done, selected/);
   await expect(weekly).toHaveAccessibleName(/2 of 3 done, current parsha/);
   await expect(weekly).toHaveAttribute('aria-pressed', 'false');
@@ -107,7 +111,8 @@ test('Rashi completion is stored and grays out Targum after reload', async ({ pa
   await page.reload();
   await expect(page.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(3);
   await expect(page.locator('.parsharow.current')).toHaveClass(/done/);
-  await expect(page.locator('.parsharow.current .parshanum svg')).toHaveCount(1);
+  await expect(page.locator('.parsharow.current .statusring.complete svg')).toHaveCount(1);
+  await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('3 / 3');
   await expect(page.locator('[data-reading="rashi"]')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('[data-reading="onkelos"]')).toBeDisabled();
 });
@@ -163,22 +168,21 @@ for (const width of [320, 360, 393, 440, 768, 1280]) {
       await page.locator(`[data-sefer-tab="${index}"]`).click();
       const layout = await page.evaluate(() => ({
         overflow: document.documentElement.scrollWidth > innerWidth,
-        hebrewColumns: [...document.querySelectorAll('.parshahe')].map(e => e.getBoundingClientRect().left),
+        hebrewNames: document.querySelectorAll('.cycle [lang="he"]').length,
+        rings: document.querySelectorAll('.statusring').length,
+        rows: document.querySelectorAll('.parsharow').length,
         englishColumns: [...document.querySelectorAll('.parshaen')].map(e => e.getBoundingClientRect().left),
-        rtl: [...document.querySelectorAll('.parshahe')].every(e => getComputedStyle(e).direction === 'rtl'),
         list: document.querySelector('.parshalist').getBoundingClientRect().right,
         card: document.querySelector('.cycle').getBoundingClientRect().right,
       }));
       expect(layout.overflow).toBe(false);
-      expect(new Set(layout.hebrewColumns).size).toBe(1);
+      expect(layout.hebrewNames).toBe(0);
+      expect(layout.rings).toBe(layout.rows);
       expect(new Set(layout.englishColumns).size).toBe(1);
-      expect(layout.rtl).toBe(true);
       expect(layout.list).toBeLessThan(layout.card);
     }
-    if (width === 393 || width === 440) {
-      const positions = await page.locator('.sefertab').evaluateAll(elements => elements.map(e => e.offsetTop));
-      expect(new Set(positions.slice(0, 4)).size).toBe(1);
-      expect(positions[4]).toBeGreaterThan(positions[0]);
-    }
+    const positions = await page.locator('.sefertab').evaluateAll(elements => elements.map(e => e.offsetTop));
+    expect(new Set(positions).size).toBe(1);
+    await expect(page.locator('[data-sefer-tab="4"]')).toBeInViewport();
   });
 }

@@ -161,11 +161,11 @@ function readingControl(key, label, on, ariaLabel, num = null, disabled = false)
       <span class="rlabel">${label}</span>
     </button>`;
   }
-  return `<div class="readrow${disabled ? ' unavailable' : ''}" data-reading-row="${key}">
-      ${num ? `<span class="rnum" aria-hidden="true">${num}</span>` : ''}
-      <span class="rlabel">${label}</span>
-      <button type="button" class="rcheck${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on ? 'true' : 'false'}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
-        ${on ? check : ''}
+  return `<div class="readingstep" data-reading-row="${key}">
+      <span class="rnum" aria-hidden="true">${num}</span>
+      <button type="button" class="readrow readingchoice${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
+        <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
+        <span class="rlabel">${label}</span>
       </button>
     </div>`;
 }
@@ -181,6 +181,7 @@ function render() {
   const p = state(item.id);
   const n = steps(p);
   const done = rows.filter(r => complete(state(r.id))).length;
+  const weeklySteps = steps(state(weekly.id));
   const itemSefer = seferOf(item.id);
   const viewSefer = activeSefer !== null ? activeSefer : itemSefer;
   const seferRows = rows.filter(r => seferOf(r.id) === viewSefer);
@@ -227,13 +228,20 @@ function render() {
 
         <div class="sidecol">
           <section class="card yearly" aria-label="Yearly progress">
-            <p class="bignum">${done} <span>/ ${rows.length}</span></p>
-            <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
-            <p class="bigsub">Parshiyos completed</p>
+            <div class="weeklyprogress" aria-label="This week's progress">
+              <div class="progressheading"><h2 class="kicker">This week</h2><p class="progressvalue">${weeklySteps}<span> / 3</span></p></div>
+              <div class="weeksegments" role="img" aria-label="${weeklySteps} of 3 readings completed for ${titleName(weekly.names)}">${[1, 2, 3].map(step => `<span class="${weeklySteps >= step ? 'filled' : ''}"></span>`).join('')}</div>
+              <p class="bigsub">${titleName(weekly.names)} readings</p>
+            </div>
+            <div class="yearprogress">
+              <div class="progressheading"><h2 class="kicker">This year</h2><p class="progressvalue bignum">${done}<span> / ${rows.length}</span></p></div>
+              <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
+              <p class="bigsub">Parshiyos completed</p>
+            </div>
           </section>
 
           <section class="card shabbos" aria-label="Upcoming Shabbos">
-            <h2 class="kicker">Upcoming Shabbos</h2>
+            <h2 class="kicker">Upcoming shabbos</h2>
             <p class="shabbos-count">${countdownText}</p>
             <p class="shabbos-date">${shabbosDateText}</p>
           </section>
@@ -253,7 +261,7 @@ function render() {
         </nav>
 
         <div class="cyclesub">
-          <h2 class="cycname"><span>Sefer ${SEFARIM[viewSefer].en}</span><span class="seferhe" lang="he" dir="rtl">ספר ${SEFARIM[viewSefer].he}</span></h2>
+          <h2 class="cycname">Sefer ${SEFARIM[viewSefer].en}</h2>
           <span class="cyccount">${seferDone}/${seferRows.length}</span>
         </div>
 
@@ -268,10 +276,10 @@ function render() {
             const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done` : 'Not started';
             return `<li>
               <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${st}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
-                <span class="parshanum" aria-hidden="true">${isDone ? check : i + 1}</span>
+                <span class="parshanum" aria-hidden="true">${i + 1}</span>
                 <span class="parshaen">${titleName(r.names)}</span>
-                <span class="parshahe" lang="he" dir="rtl">${hebrewParshaName(r.names)}</span>
                 <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? `${numSteps}/3` : isCur ? 'Current' : ''}</span>
+                <span class="statusring ${isDone ? 'complete' : isPartial ? 'partial' : 'empty'}" style="--progress:${numSteps / 3 * 100}%" aria-hidden="true">${isDone ? check : ''}</span>
               </button>
             </li>`;
           }).join('')}
@@ -289,6 +297,12 @@ function render() {
 }
 
 function wire(rows, weekly, item, p) {
+  // Keep the active book visible when the tab strip is narrower than its contents.
+  const activeTab = document.querySelector('.sefertab.active');
+  const tabStrip = document.querySelector('.sefertabs');
+  if (activeTab && tabStrip) {
+    tabStrip.scrollLeft = Math.max(0, activeTab.offsetLeft - (tabStrip.clientWidth - activeTab.offsetWidth) / 2);
+  }
   document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
     activeSefer = Number(b.dataset.seferTab);
     render();
@@ -316,6 +330,13 @@ function wire(rows, weekly, item, p) {
     render();
     const again = document.querySelector(`button[data-reading="${k}"]`);
     if (again) again.focus({ preventScroll: true });
+    if (nextState[k]) {
+      again?.classList.add('just-checked');
+      // Unsupported haptics must never interrupt saving or visual feedback.
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        try { navigator.vibrate?.(8); } catch { /* optional device feedback */ }
+      }
+    }
     const q = state(item.id);
     const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : k === 'rashi' ? 'Rashi' : 'Targum';
     announce(`${label} ${q[k] ? 'done' : 'not done'}. ${titleName(item.names)}${complete(q) ? ' complete' : `, ${steps(q)} of 3 done`}`);
