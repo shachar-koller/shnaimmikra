@@ -1,19 +1,45 @@
 import './style.css';
-import { Locale } from '@hebcal/core';
+import { HDate, Locale } from '@hebcal/core';
 import { complete, steps, cycleYear, schedule } from './model.js';
 
 const KEY = 'shnaim-mikra-v1';
-let data = { progress: {}, israel: false };
+let data = { progress: {}, israel: false, commentary: 'onkelos', theme: undefined };
 let storageOK = true;
 try {
   const raw = JSON.parse(localStorage.getItem(KEY));
-  if (raw && typeof raw.progress === 'object' && raw.progress !== null)
-    data = { progress: raw.progress, israel: raw.israel === true };
+  if (raw && typeof raw.progress === 'object' && raw.progress !== null) {
+    data = {
+      progress: raw.progress,
+      israel: raw.israel === true,
+      commentary: raw.commentary === 'rashi' ? 'rashi' : 'onkelos',
+      theme: raw.theme === 'dark' || raw.theme === 'light' ? raw.theme : undefined,
+    };
+  }
 } catch { storageOK = false; }
 
-let year = cycleYear(new Date(), data.israel), view = 'week', filter = 'All', chosen = null;
+function applyTheme() {
+  const t = data.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = t;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = t === 'dark' ? '#141412' : '#ffffff';
+}
+function toggleTheme() {
+  data.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  save(); applyTheme(); render();
+  const btn = document.querySelector('#theme');
+  if (btn) btn.focus({ preventScroll: true });
+}
 
-const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+let year = cycleYear(new Date(), data.israel);
+let chosen = null;   // selected parsha id, or null = current week
+let showAll = false;
+
+const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+const bookIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 5.5C10 4.5 7.5 4 4.5 4v15c3 0 5.5.5 7.5 1.5 2-1 4.5-1.5 7.5-1.5V4c-3 0-5.5.5-7.5 1.5z"/><path d="M12 5.5v15"/></svg>';
+const slidersIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>';
+const arrowIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg>';
+const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/></svg>';
 
 // Sefer grouping. Keys are exact Hebcal English names (full id first,
 // so hyphenated names like Lech-Lecha resolve correctly).
@@ -26,161 +52,238 @@ const SEFER_OF = {};
   ['Devarim', 'Vaetchanan', 'Eikev', "Re'eh", 'Shoftim', 'Ki Teitzei', 'Ki Tavo', 'Nitzavim', 'Vayeilech', "Ha'azinu", 'Vezot Haberakhah'],
 ].forEach((names, i) => names.forEach(n => { SEFER_OF[n] = i; }));
 const SEFARIM = [
-  { en: 'Bereishit', he: 'בראשית' },
-  { en: 'Shemot', he: 'שמות' },
+  { en: 'Bereishis', he: 'בראשית' },
+  { en: 'Shemos', he: 'שמות' },
   { en: 'Vayikra', he: 'ויקרא' },
   { en: 'Bamidbar', he: 'במדבר' },
   { en: 'Devarim', he: 'דברים' },
 ];
 const seferOf = id => SEFER_OF[id] ?? SEFER_OF[id.split('-')[0]] ?? 0;
+const NAME_MAP = { Bereshit: 'Bereishis', Shemot: 'Shemos' };
+const fixName = n => (NAME_MAP[n] || n).replace(/-/g, ' ');
+const displayNames = names => names.map(fixName);
+const titleName = names => displayNames(names).join(' – ');
+const heroName = names => `Parshas ${names.length > 1 ? displayNames(names).join('–') : fixName(names[0])}`;
 const hebrewName = names => names.map(n => Locale.gettext(n, 'he')).join('־');
 
 const all = () => schedule(year, data.israel);
 const state = id => data.progress[`${year}:${id}`] || {};
 function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); storageOK = true; } catch { storageOK = false; } }
-const dateLabel = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const fullDate = d => d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 function current(rows) { const today = new Date(); today.setHours(0, 0, 0, 0); return rows.find(r => r.date >= today) || rows.at(-1); }
-const statusText = p => complete(p) ? 'Complete' : steps(p) === 0 ? 'Not started' : `${steps(p)} of 3`;
+const hebrewYearOf = date => { try { return new HDate(date).getFullYear(); } catch { return null; } };
+
+function setProgress(id, next) {
+  const k = `${year}:${id}`;
+  if (Object.values(next).some(Boolean)) data.progress[k] = next;
+  else delete data.progress[k];
+  save();
+}
+
+function announce(msg) {
+  const el = document.querySelector('#announcement');
+  if (el) el.textContent = msg;
+}
+
+function readingRow(key, num, label, on, ariaLabel) {
+  return `<li>
+    <button class="readrow" data-reading="${key}" aria-pressed="${on ? 'true' : 'false'}" aria-label="${ariaLabel}">
+      <span class="rnum" aria-hidden="true">${num}</span>
+      <span class="rlabel">${label}</span>
+      <span class="rdot${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
+    </button>
+  </li>`;
+}
 
 function render() {
-  const rows = all(), weekly = current(rows), item = rows.find(r => r.id === chosen) || weekly;
-  const p = state(item.id), done = rows.filter(r => complete(state(r.id))).length;
+  const rows = all();
+  const weekly = current(rows);
+  const item = rows.find(r => r.id === chosen) || weekly;
+  const idx = rows.indexOf(item);
+  const p = state(item.id);
+  const n = steps(p);
+  const done = rows.filter(r => complete(state(r.id))).length;
   const isWeekly = item.id === weekly.id;
-  const groups = SEFARIM.map((s, i) => ({ ...s, rows: rows.filter(r => seferOf(r.id) === i) }));
+  const sIdx = seferOf(item.id);
+  const seferRows = rows.filter(r => seferOf(r.id) === sIdx);
+  const seferDone = seferRows.filter(r => complete(state(r.id))).length;
+  const hebYear = hebrewYearOf(item.date);
+  const next = rows[idx + 1] || null;
+  const groups = SEFARIM.map((s, i) => ({ ...s, rows: rows.filter(r => seferOf(r.id) === i) })).filter(g => g.rows.length);
+  const targumOn = !!(p.onkelos || p.rashi);
+  const activeFlavor = p.onkelos ? 'Onkelos' : p.rashi ? 'Rashi' : null;
+  const isDark = document.documentElement.dataset.theme === 'dark';
 
   document.querySelector('#app').innerHTML = `
-  <header><a class="brand" href="#" aria-label="Shnaim Mikra home">Shnaim mikra</a><button class="settings" aria-label="Settings">Settings</button></header>
-  <main>
-    <section class="parsha-head" aria-labelledby="parsha-he">
-      <p class="kicker">${isWeekly ? `This week's parsha · Shabbat ${dateLabel(item.date)}` : `Reading · ${fullDate(item.date)}`}</p>
-      <h1 id="parsha-he" lang="he" dir="rtl">${hebrewName(item.names)}</h1>
-      <p class="parsha-en">${item.names.join(' – ')} · <span lang="he" dir="auto">${item.hebrew}</span></p>
-      <p class="helper">Read twice, plus Onkelos or Rashi.</p>
-    </section>
+  <a class="skip" href="#reading">Skip to reading</a>
+  <div class="page">
+    <header class="topbar">
+      <span class="brand"><span class="brandicon" aria-hidden="true">${bookIcon}</span>Shnayim Mikra</span>
+      <span class="topright">
+        ${hebYear ? `<span class="hebyear">${hebYear}</span>` : ''}
+        <button class="iconbtn" id="theme" aria-label="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}" aria-pressed="${isDark}">${isDark ? sunIcon : moonIcon}</button>
+        <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
+      </span>
+    </header>
 
-    <section class="checklist" aria-label="Checklist for ${item.names.join(' and ')}">
-      <ol>
-        ${checkRow('mikra1', '1', 'Mikra 1', 'First reading', p)}
-        ${checkRow('mikra2', '2', 'Mikra 2', 'Second reading', p)}
-        <li class="targum-row">
-          <span class="num" aria-hidden="true">3</span>
-          <span class="check-text"><strong>Targum</strong><small>Choose one</small></span>
-          <span class="either" role="radiogroup" aria-label="Translation, choose one">
-            <button role="radio" aria-checked="${!!p.onkelos}" class="${p.onkelos ? 'on' : ''}" data-reading="onkelos"><span class="dot" aria-hidden="true"></span>Onkelos</button>
-            <button role="radio" aria-checked="${!!p.rashi}" class="${p.rashi ? 'on' : ''}" data-reading="rashi"><span class="dot" aria-hidden="true"></span>Rashi</button>
-          </span>
-        </li>
-      </ol>
-      <div class="status-line"><span>${statusText(p)}</span><span aria-hidden="true">${steps(p)} / 3</span></div>
-      <div class="progress-track" role="img" aria-label="${statusText(p)}"><div style="width:${steps(p) / 3 * 100}%"></div></div>
-    </section>
-
-    <section class="cycle" aria-label="Progress through the cycle">
-      <div class="cycle-head"><h2>The cycle</h2><p>${done} of ${rows.length} completed</p></div>
-      <div class="cycle-bar" role="img" aria-label="${done} of ${rows.length} parshiot completed"><div style="width:${Math.round(done / rows.length * 100)}%"></div></div>
-      ${groups.filter(g => g.rows.length).map(g => `
-        <div class="sefer">
-          <h3><span lang="he" dir="rtl">${g.he}</span> ${g.en}</h3>
-          <div class="cells">
-            ${g.rows.map(r => {
-              const s = state(r.id), st = complete(s) ? 'Completed' : steps(s) > 0 ? `${steps(s)} of 3` : 'Not started';
-              const cls = complete(s) ? 'done' : steps(s) > 0 ? 'started' : '';
-              const cur = r.id === weekly.id;
-              return `<button class="cell ${cls}${cur ? ' current' : ''}" data-parsha="${r.id}" title="${hebrewName(r.names)}" aria-label="${r.names.join(' and ')}, ${st}${cur ? ', this week' : ''}"${cur ? ' aria-current="true"' : ''}><span class="tip" lang="he" dir="rtl" aria-hidden="true">${hebrewName(r.names)}</span></button>`;
-            }).join('')}
-          </div>
-        </div>`).join('')}
-    </section>
-
-    <div class="toolbar">
-      <nav aria-label="Tracker view"><button data-view="week" class="${view === 'week' ? 'active' : ''}" ${view === 'week' ? 'aria-current="true"' : ''}>This week</button><button data-view="year" class="${view === 'year' ? 'active' : ''}" ${view === 'year' ? 'aria-current="true"' : ''}>All parshiot</button></nav>
-      <label class="year-select">Cycle <select id="year">${[cycleYear() - 1, cycleYear(), cycleYear() + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select></label>
-    </div>
-
-    <section class="all-section ${view === 'year' ? 'expanded' : ''}" aria-label="Parsha list">
-      <div class="list-heading">
-        <h2>${view === 'year' ? 'All parshiot' : 'Around this week'}</h2>
-        ${view === 'week'
-          ? '<button class="text-button" id="show-all">View all parshiot</button>'
-          : `<div class="filters" role="group" aria-label="Filter parshiot">${['All', 'In progress', 'Completed'].map(f => `<button data-filter="${f}" class="${f === filter ? 'selected' : ''}" ${f === filter ? 'aria-current="true"' : ''}>${f}</button>`).join('')}</div>`}
+    <main>
+      <div class="titlerow">
+        <h1>${heroName(item.names)}</h1>
+        <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </div>
-      <div class="parsha-list">
-        ${listRows(rows, weekly).map(r => {
-          const s = state(r.id);
-          const st = complete(s) ? 'Completed' : steps(s) > 0 ? `${steps(s)} of 3` : '';
-          return `<button class="parsha-row ${item.id === r.id ? 'current' : ''}" data-parsha="${r.id}" ${item.id === r.id ? 'aria-current="true"' : ''}>
-            <span class="row-name">${r.names.join(' – ')}<small>${dateLabel(r.date)}${r.id === weekly.id ? ' · This week' : ''}${st ? ` · ${st}` : ''}</small></span>
-            <span class="row-he" lang="he" dir="rtl" aria-hidden="true">${hebrewName(r.names)}</span>
-          </button>`;
-        }).join('') || '<p class="empty">Nothing here. Your next reading is a good place to start.</p>'}
-      </div>
-    </section>
+      ${isWeekly ? '' : `<p class="backrow"><button class="backlink" id="back-week">← Back to this week: ${titleName(weekly.names)}</button></p>`}
 
-    <footer><span>${storageOK ? 'Saved on this device' : 'Progress could not be saved. Check browser storage.'}</span><button id="install">Add to home screen</button></footer>
-  </main>
+      <div class="cards">
+        <section class="card" id="reading" aria-label="Your reading for ${titleName(item.names)}">
+          <div class="cardhead"><h2>Your reading</h2><span class="count">${n} of 3</span></div>
+          <div class="bar" role="img" aria-label="${n} of 3 readings done"><div style="width:${(n / 3) * 100}%"></div></div>
+          <ol class="reads">
+            ${readingRow('mikra1', '1', 'Mikra I', !!p.mikra1, `First reading of the parsha${p.mikra1 ? ', done' : ''}`)}
+            ${readingRow('mikra2', '2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
+            ${readingRow('targum', '3', 'Targum', targumOn, `Commentary reading${activeFlavor ? `, ${activeFlavor} done` : `, not done`}`)}
+          </ol>
+          ${n > 0 ? `<p class="resetrow"><button class="resetlink" id="reset-week">Reset this week</button></p>` : ''}
+        </section>
+
+        <section class="card" aria-label="Yearly progress">
+          <h2 class="kicker">YEARLY PROGRESS</h2>
+          <p class="bignum">${done} <span>/ ${rows.length}</span></p>
+          <p class="bigsub">Parshiyos completed</p>
+          <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
+          <div class="yearspace" aria-hidden="true"></div>
+          <p class="nextlabel">Next up</p>
+          ${next
+            ? `<p class="nextrow"><button class="nextlink" data-parsha="${next.id}">${titleName(next.names)}</button><span class="nextarrow" aria-hidden="true">${arrowIcon}</span></p>`
+            : '<p class="nextrow"><span class="nextlink as-text">Cycle complete</span></p>'}
+        </section>
+      </div>
+
+      <section class="card cycle" aria-label="The yearly cycle">
+        <div class="cyclehead solo">
+          <button class="browselink" id="browse">${showAll ? 'Show less ↑' : 'Browse all parshiyos →'}</button>
+        </div>
+        <div class="cyclesub">
+          <span class="cycname">${SEFARIM[sIdx].en} · <span lang="he" dir="rtl">${SEFARIM[sIdx].he}</span></span>
+          <span class="cyccount">${seferDone}/${seferRows.length}</span>
+        </div>
+        <div class="dots" role="list">
+          ${seferRows.map(r => {
+            const s = state(r.id);
+            const cls = [complete(s) ? 'done' : '', r.id === weekly.id ? 'current' : '', r.id === item.id ? 'selected' : '', (!complete(s) && steps(s) > 0) ? 'started' : ''].filter(Boolean).join(' ');
+            const st = complete(s) ? 'Completed' : steps(s) > 0 ? `${steps(s)} of 3 done` : 'Not started';
+            return `<button role="listitem" class="dot ${cls}" data-parsha="${r.id}" title="${titleName(r.names)}" aria-label="${titleName(r.names)}, ${st}${r.id === weekly.id ? ', this week' : ''}${r.id === item.id ? ', selected' : ''}">${complete(s) ? `<span class="dotcheck" aria-hidden="true">${check}</span>` : ''}</button>`;
+          }).join('')}
+        </div>
+        ${showAll ? `
+        <hr class="footrule" />
+        <div class="alllist">
+          ${groups.map(g => {
+            const gd = g.rows.filter(r => complete(state(r.id))).length;
+            return `<div class="allgroup">
+              <p class="allname">${g.en} <span lang="he" dir="rtl">${g.he}</span> <span class="allcount">${gd}/${g.rows.length}</span></p>
+              <div class="alltiles">
+                ${g.rows.map(r => {
+                  const s = state(r.id);
+                  const cls = complete(s) ? 'done' : r.id === weekly.id ? 'current' : '';
+                  return `<button class="alltile ${cls}${r.id === item.id ? ' selected' : ''}" data-parsha="${r.id}" ${r.id === weekly.id ? 'aria-current="true"' : ''}>${titleName(r.names)}</button>`;
+                }).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+      </section>
+
+      <footer><span class="${storageOK ? '' : 'warn'}">${storageOK ? '' : 'Progress could not be saved. Check browser storage.'}</span></footer>
+    </main>
+  </div>
   <div id="dialog-root"></div>
   <div class="sr-only" aria-live="polite" id="announcement"></div>`;
 
-  document.querySelector('.brand').onclick = e => { e.preventDefault(); view = 'week'; chosen = null; year = cycleYear(new Date(), data.israel); render(); };
-  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { view = b.dataset.view; render(); if (view === 'year') document.querySelector('.all-section').scrollIntoView({ block: 'start' }); });
+  wire(rows, weekly, item, p);
+}
+
+function wire(rows, weekly, item, p) {
+  document.querySelectorAll('[data-parsha]').forEach(b => b.onclick = () => {
+    chosen = b.dataset.parsha;
+    render();
+    document.querySelector('#reading').scrollIntoView({ block: 'start' });
+  });
   document.querySelectorAll('[data-reading]').forEach(b => b.onclick = () => {
-    const key = `${year}:${item.id}`, k = b.dataset.reading, next = { ...p };
-    if (k === 'onkelos' || k === 'rashi') {
-      // Either/or: selecting one clears the other; tapping the active one clears it.
-      const other = k === 'onkelos' ? 'rashi' : 'onkelos';
-      next[k] = !p[k]; if (next[k]) next[other] = false;
-    } else next[k] = !p[k];
-    data.progress[key] = next; save(); render();
+    const k = b.dataset.reading;
+    const nextState = { ...p };
+    if (k === 'mikra1' || k === 'mikra2') {
+      nextState[k] = !p[k];
+    } else {
+      const pref = data.commentary === 'rashi' ? 'rashi' : 'onkelos';
+      if (nextState.onkelos || nextState.rashi) { nextState.onkelos = false; nextState.rashi = false; }
+      else nextState[pref] = true;
+    }
+    setProgress(item.id, nextState);
+    render();
     const again = document.querySelector(`[data-reading="${k}"]`);
     if (again) again.focus({ preventScroll: true });
-    document.querySelector('#announcement').textContent = complete(state(item.id)) ? 'Parsha complete' : `${k} ${state(item.id)[k] ? 'checked' : 'unchecked'}`;
+    const q = state(item.id);
+    const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : 'Commentary reading';
+    announce(complete(q) ? `${titleName(item.names)} complete` : `${label} ${steps(q)} of 3 done`);
   });
-  document.querySelectorAll('[data-parsha]').forEach(b => b.onclick = () => { chosen = b.dataset.parsha; render(); document.querySelector('.checklist').scrollIntoView({ block: 'start' }); });
-  document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { filter = b.dataset.filter; render(); });
-  document.querySelector('#year').onchange = e => { year = Number(e.target.value); chosen = null; render(); };
-  const show = document.querySelector('#show-all');
-  if (show) show.onclick = () => { view = 'year'; render(); };
-  document.querySelector('.settings').onclick = settings;
-  document.querySelector('#install').onclick = install;
+  const reset = document.querySelector('#reset-week');
+  if (reset) reset.onclick = () => { setProgress(item.id, {}); render(); announce(`${titleName(item.names)} reset`); };
+  const back = document.querySelector('#back-week');
+  if (back) back.onclick = () => { chosen = null; render(); window.scrollTo({ top: 0 }); };
+  const browse = document.querySelector('#browse');
+  if (browse) browse.onclick = () => { showAll = !showAll; render(); };
+  document.querySelector('#settings').onclick = settings;
+  document.querySelector('#theme').onclick = toggleTheme;
 }
 
-function checkRow(key, num, label, sub, p) {
-  return `<li><button class="check-row ${p[key] ? 'on' : ''}" data-reading="${key}" aria-pressed="${!!p[key]}" aria-label="${label}, ${sub}">
-    <span class="num" aria-hidden="true">${num}</span>
-    <span class="check-text"><strong>${label}</strong><small>${sub}</small></span>
-    <span class="box" aria-hidden="true">${p[key] ? check : ''}</span>
-  </button></li>`;
-}
-
-function listRows(rows, weekly) {
-  if (view === 'week') { const i = rows.indexOf(weekly); return rows.slice(Math.max(0, i - 1), Math.max(3, i + 2)); }
-  return rows.filter(r => filter === 'All' || (filter === 'Completed' ? complete(state(r.id)) : steps(state(r.id)) > 0 && !complete(state(r.id))));
-}
-
-function modal(html) {
-  document.querySelector('#dialog-root').innerHTML = `<dialog><button class="close" aria-label="Close">×</button>${html}</dialog>`;
-  const d = document.querySelector('dialog'); d.showModal();
-  d.querySelector('.close').onclick = () => d.close();
-  d.onclick = e => { if (e.target === d) { const r = d.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close(); } };
+function modal(html, label = 'Dialog') {
+  const prev = document.activeElement;
+  document.querySelector('#dialog-root').innerHTML = `<div class="scrim"></div><div class="dialog" role="dialog" aria-modal="true" aria-label="${label}"><button class="close" aria-label="Close">×</button>${html}</div>`;
+  const box = document.querySelector('.dialog');
+  const close = () => { document.querySelector('#dialog-root').innerHTML = ''; if (prev && prev.focus) prev.focus({ preventScroll: true }); };
+  box.querySelector('.close').onclick = close;
+  document.querySelector('.scrim').onclick = close;
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+  });
+  const first = box.querySelector('button.primary') || box.querySelector('.close');
+  if (first) first.focus({ preventScroll: true });
 }
 
 function settings() {
+  const baseYear = cycleYear(new Date(), data.israel);
   modal(`<h2>Settings</h2>
     <label class="setting-row">Reading calendar
       <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
     </label>
-    <p class="dialog-note">The weekly parsha follows this calendar. Progress is saved in this browser, on this device.</p>
-    <button class="primary" id="save-settings">Done</button>`);
-  document.querySelector('#save-settings').onclick = () => { data.israel = document.querySelector('#location').value === 'true'; chosen = null; save(); render(); };
+    <label class="setting-row">Commentary
+      <select id="pref"><option value="onkelos" ${data.commentary !== 'rashi' ? 'selected' : ''}>Onkelos</option><option value="rashi" ${data.commentary === 'rashi' ? 'selected' : ''}>Rashi</option></select>
+    </label>
+    <label class="setting-row">Cycle
+      <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select>
+    </label>
+    <p class="dialog-note">The weekly parsha follows this calendar. Switching calendars keeps your checkmarks, but the “this week” parsha may change. Progress is saved in this browser, on this device.</p>
+    <button class="primary" id="save-settings">Done</button>`, 'Settings');
+  document.querySelector('#save-settings').onclick = () => {
+    data.israel = document.querySelector('#location').value === 'true';
+    data.commentary = document.querySelector('#pref').value === 'rashi' ? 'rashi' : 'onkelos';
+    year = Number(document.querySelector('#cyear').value);
+    chosen = null;
+    save(); render(); document.querySelector('#dialog-root').innerHTML = '';
+  };
 }
 
-function install() {
-  modal(`<h2>Add to home screen</h2><p>Keep the weekly reading a tap away.</p>
-  <ol><li>Open this app in <strong>Safari</strong> on your iPhone.</li><li>Tap the <strong>Share</strong> button.</li><li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li></ol>
-  <p class="dialog-note">Once loaded, the app works offline. Progress stays on this device; clearing website data removes it.</p>`);
-}
-
-window.addEventListener('storage', e => { if (e.key === KEY) { try { const d = JSON.parse(e.newValue); if (d?.progress) { data = d; render(); } } catch { } } });
+window.addEventListener('storage', e => {
+  if (e.key === KEY) {
+    try {
+      const d = JSON.parse(e.newValue);
+      if (d?.progress) {
+        data = { progress: d.progress, israel: d.israel === true, commentary: d.commentary === 'rashi' ? 'rashi' : 'onkelos', theme: d.theme === 'dark' || d.theme === 'light' ? d.theme : undefined };
+        applyTheme();
+        render();
+      }
+    } catch { /* keep current state */ }
+  }
+});
+applyTheme();
 render();
 if ('serviceWorker' in navigator && import.meta.env.PROD) navigator.serviceWorker.register('/sw.js').catch(() => {});
