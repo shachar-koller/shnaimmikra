@@ -1,5 +1,51 @@
 import { test, expect } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('shnaim-mikra-guest-choice', 'true'));
+});
+
+test.describe('parsha highlighting on touch devices', () => {
+  test.use({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true });
+
+  test('a lingering hover cannot highlight an unselected parsha', async ({ page }) => {
+    await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+    await page.goto('/');
+    expect(await page.evaluate(() => matchMedia('(hover: hover)').matches)).toBe(false);
+
+    for (const [id, title] of [
+      ['Lech-Lecha', 'Parshas Lech Lecha'],
+      ['Chayei Sara', 'Parshas Chayei Sarah'],
+      ['Noach', 'Parshas Noach'],
+    ]) {
+      const selected = page.locator(`[data-parsha="${id}"]`);
+      await selected.tap();
+      await expect(page.locator('h1')).toHaveText(title);
+      await expect(page.locator('.parsharow.selected')).toHaveCount(1);
+      await expect(selected).toHaveAttribute('aria-pressed', 'true');
+      await expect(selected).toHaveCSS('background-color', 'rgb(231, 231, 231)');
+
+      // Force the :hover state that touch browsers can retain after a tap.
+      const unselected = page.locator(`[data-parsha="${id === 'Noach' ? 'Lech-Lecha' : 'Noach'}"]`);
+      await unselected.hover();
+      expect(await unselected.evaluate(row => ({
+        hovered: row.matches(':hover'),
+        selected: row.getAttribute('aria-pressed'),
+        background: getComputedStyle(row).backgroundColor,
+      }))).toEqual({ hovered: true, selected: 'false', background: 'rgba(0, 0, 0, 0)' });
+      await expect(selected).toHaveCSS('background-color', 'rgb(231, 231, 231)');
+    }
+  });
+});
+
+test('mouse hover feedback preserves the selected parsha highlight', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
+  await page.goto('/');
+  await page.locator('[data-parsha="Lech-Lecha"]').hover();
+  await expect(page.locator('[data-parsha="Lech-Lecha"]')).toHaveCSS('background-color', 'rgb(240, 240, 240)');
+  await expect(page.locator('.parsharow.selected')).toHaveAttribute('data-parsha', 'Noach');
+  await expect(page.locator('.parsharow.selected')).toHaveCSS('background-color', 'rgb(231, 231, 231)');
+});
+
 for (const width of [393, 1280]) {
   test.describe(`stable interactions at ${width}px`, () => {
     test.use({ viewport: { width, height: 700 } });

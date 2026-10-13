@@ -12,7 +12,8 @@ export const DOUBLE_PARSHIYOS = [
  ['Nitzavim', 'Vayeilech'],
 ];
 export function cycleYear(date = new Date(), israel = false) {
- const h = new HDate(date); return h.getMonth() === months.TISHREI && h.getDate() < (israel ? 22 : 23) ? h.getFullYear()-1 : h.getFullYear();
+ // Simchas Torah still belongs to the cycle ending that day.
+ const h = new HDate(date); return h.getMonth() === months.TISHREI && h.getDate() <= (israel ? 22 : 23) ? h.getFullYear()-1 : h.getFullYear();
 }
 export function schedule(year, israel = false) {
  const start = new HDate(israel ? 23 : 24, months.TISHREI, year).abs();
@@ -30,7 +31,8 @@ export function schedule(year, israel = false) {
  return rows;
 }
 export function localShabbosDate(gregDate) {
- return new Date(gregDate.getUTCFullYear(), gregDate.getUTCMonth(), gregDate.getUTCDate());
+ // Hebcal greg() returns local midnight, not a UTC date.
+ return new Date(gregDate.getFullYear(), gregDate.getMonth(), gregDate.getDate());
 }
 export function currentParsha(rows, now = new Date()) {
  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());

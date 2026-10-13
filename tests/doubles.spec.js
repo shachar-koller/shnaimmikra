@@ -7,6 +7,7 @@ const parsha = (page, id) => page.locator(`.parsharow[data-parsha="${id}"]`);
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-04-12T12:00:00Z'));
   await page.goto('/');
+  await page.getByRole('button', { name: 'Continue without an account' }).click();
 });
 
 test('one half of a double week can be completed while the other stays unfinished', async ({ page }) => {

@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { mockAccount } from './account-helper.js';
 
 const key = 'shnaim-mikra-v1';
+const accountKey = 'shnaim-mikra-v2:account:11111111-1111-4111-8111-111111111111';
 const seed = {
   israel: false, commentary: 'rashi', theme: 'forest-dark',
   progress: {
@@ -13,6 +15,7 @@ const seed = {
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
   await page.goto('/');
+  await page.getByRole('button', { name: 'Continue without an account' }).click();
 });
 
 async function seedProgress(page) {
@@ -132,48 +135,6 @@ test('settings fits a small screen, scrolls, and traps keyboard focus', async ({
   }))).toEqual({ fits: true, scrolls: true, overflows: false });
 });
 
-async function mockAccount(page, { failDelete = false, delayedWrite = false, initialRows } = {}) {
-  const userId = '11111111-1111-4111-8111-111111111111';
-  const requests = [];
-  let rows = initialRows || [{ year: 5786, parsha_id: 'Bereshit', mikra1: true, mikra2: true, rashi: true, onkelos: false }];
-  await page.route('**/auth/v1/**', async route => {
-    requests.push({ method: route.request().method(), url: route.request().url() });
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: userId, email: 'reader@example.com', app_metadata: {}, user_metadata: {}, aud: 'authenticated' }) });
-  });
-  await page.route('**/rest/v1/**', async route => {
-    const request = route.request();
-    requests.push({ method: request.method(), url: request.url() });
-    const url = new URL(request.url());
-    if (url.pathname.endsWith('/profiles')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(request.method() === 'GET' ? { israel: false, commentary: 'onkelos' } : {}) });
-    } else if (request.method() === 'GET') {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
-    } else if (request.method() === 'DELETE') {
-      if (!failDelete) {
-        const year = url.searchParams.get('year')?.slice(3);
-        const parshaId = url.searchParams.get('parsha_id')?.slice(3);
-        rows = rows.filter(row => (year && row.year !== Number(year)) || (parshaId && row.parsha_id !== parshaId));
-      }
-      await route.fulfill({ status: failDelete ? 500 : 204, body: failDelete ? JSON.stringify({ message: 'Test failure' }) : '' });
-    } else {
-      if (delayedWrite) await new Promise(resolve => setTimeout(resolve, 250));
-      const incoming = request.postDataJSON();
-      for (const row of Array.isArray(incoming) ? incoming : [incoming]) {
-        rows = rows.filter(r => !(r.year === row.year && r.parsha_id === row.parsha_id));
-        rows.push(row);
-      }
-      await route.fulfill({ status: 201, contentType: 'application/json', body: '{}' });
-    }
-  });
-  const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ exp: 4102444800, sub: userId })).toString('base64url'), Buffer.from('test-signature').toString('base64url')].join('.');
-  await page.evaluate(async token => {
-    const { supabase } = await import('/src/auth.js');
-    const { error } = await supabase.auth.setSession({ access_token: token, refresh_token: 'test-refresh' });
-    if (error) throw error;
-  }, token);
-  await expect(page.locator('#announcement')).toContainText('Progress synced');
-  return { requests, getRows: () => rows };
-}
 
 test('signed-in reset deletes all account cycles after pending writes finish', async ({ page }) => {
   const cloud = await mockAccount(page, { delayedWrite: true });
@@ -215,10 +176,10 @@ test('account migration replaces combined records before independent changes syn
   for (const reading of ['mikra1', 'mikra2', 'onkelos']) {
     await page.locator(`[data-reading="${reading}"]`).click();
   }
-  await expect.poll(() => cloud.getRows().some(row => row.year === 5787 && row.parsha_id === 'Balak')).toBe(false);
+  await expect.poll(() => cloud.getRows().find(row => row.year === 5787 && row.parsha_id === 'Balak')).toMatchObject({ mikra1: false, mikra2: false, onkelos: false });
   expect(cloud.getRows().find(row => row.year === 5787 && row.parsha_id === 'Chukat')).toMatchObject({ mikra1: true, mikra2: true, onkelos: true });
   await page.reload();
-  await expect(page.locator('#announcement')).toContainText('device progress was merged');
+  await expect(page.locator('#announcement')).toContainText('Progress synced');
   await page.locator('[data-sefer-tab="3"]').click();
   await expect(page.locator('[data-parsha="Chukat"]')).toHaveClass(/done/);
   await expect(page.locator('[data-parsha="Balak"]')).not.toHaveClass(/done/);
@@ -241,24 +202,26 @@ test('signed-in export includes remote cycles and unsynced device readings', asy
 test('failed cloud reset preserves local progress and shows a retryable error', async ({ page }) => {
   await mockAccount(page, { failDelete: true });
   await page.locator('[data-reading="mikra1"]').click();
-  const before = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, key);
+  const before = await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, accountKey);
   await page.locator('#settings').click();
   await page.locator('#delete-progress').click();
   await page.locator('#confirm-delete').click();
   await expect(page.locator('#delete-status')).toContainText('Could not delete');
   await expect(page.locator('#confirm-delete')).toBeEnabled();
-  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, key)).toEqual(before);
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, accountKey)).toEqual(before);
 });
 
-test('sign out flushes progress, ends only this session, and keeps device data', async ({ page }) => {
+test('sign out flushes progress, ends only this session, and separates account data', async ({ page }) => {
   const cloud = await mockAccount(page);
   await page.locator('[data-reading="mikra1"]').click();
   await page.locator('#settings').click();
   await page.locator('#settings-signout').click();
-  await expect(page.locator('#account')).toHaveText('Sign in');
+  await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible();
   await expect(page.locator('#announcement')).toContainText('Signed out');
   expect(cloud.requests.some(r => r.url.includes('/logout?scope=local'))).toBe(true);
   expect(cloud.getRows().some(r => r.parsha_id === 'Noach' && r.mikra1)).toBe(true);
   await page.reload();
-  await expect(page.locator('[data-reading="mikra1"]')).toHaveAttribute('aria-checked', 'true');
+  await page.getByRole('button', { name: 'Continue without an account' }).click();
+  await expect(page.locator('[data-reading="mikra1"]')).toHaveAttribute('aria-checked', 'false');
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress['5787:Noach'].mikra1, accountKey)).toBe(true);
 });

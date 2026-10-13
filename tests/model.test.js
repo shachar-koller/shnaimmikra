@@ -54,9 +54,9 @@ test('progress completion checks all readings', () => {
   assert.equal(steps({ mikra1: true }), 1);
 });
 
-test('localShabbosDate extracts local date without UTC offset shift', () => {
-  const utcDate = new Date(Date.UTC(2026, 9, 17));
-  const local = localShabbosDate(utcDate);
+test('localShabbosDate preserves Hebcal local midnight', () => {
+  const hebcalDate = new Date(2026, 9, 17);
+  const local = localShabbosDate(hebcalDate);
   assert.equal(local.getFullYear(), 2026);
   assert.equal(local.getMonth(), 9);
   assert.equal(local.getDate(), 17);

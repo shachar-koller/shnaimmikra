@@ -11,5 +11,10 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev -- --port 5175 --strictPort',
     url: 'http://127.0.0.1:5175',
+    env: {
+      VITE_SUPABASE_URL: 'https://auth-test.supabase.co',
+      VITE_SUPABASE_ANON_KEY: 'test-public-anon-key',
+      VITE_GOOGLE_CLIENT_ID: '',
+    },
   },
 });

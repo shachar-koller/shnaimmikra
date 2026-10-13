@@ -12,6 +12,7 @@ test.beforeEach(async ({ page }) => {
   // Freeze only the test clock; application dates still come from Hebcal.
   await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
   await page.goto('/');
+  await page.getByRole('button', { name: 'Continue without an account' }).click();
 });
 
 test('reading progress updates the list and survives a reload', async ({ page }) => {

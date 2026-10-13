@@ -68,7 +68,7 @@ export function renderGoogleButton(el) {
         size: 'large',
         shape: 'pill',
         text: 'continue_with',
-        width: Math.max((el && el.clientWidth) || 0, 280),
+        width: Math.min(el.clientWidth || 280, 400),
       });
     } catch (e) {
       reject(e);
