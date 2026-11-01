@@ -421,6 +421,7 @@ main { min-width: 0; }
 .weeksegments span { height: 5px; border-radius: 999px; background: var(--track); transition: background-color var(--med) ease; }
 .weeksegments .filled { background: var(--green); }
 .yearprogress { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.yearprogress:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
 .bigsub { margin-top: 5px; font-size: 12px; color: var(--muted); }
 .shabbos { display: flex; flex-direction: column; justify-content: center; }
 .shabbos-count { margin-top: 8px; font-size: 26px; line-height: 1.2; font-weight: 750; letter-spacing: -0.025em; }

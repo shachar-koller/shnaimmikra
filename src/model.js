@@ -48,6 +48,6 @@ export function shabbosCountdown(targetDate, now = new Date()) {
  if (diffDays === 1) return '1 day away';
  return `${diffDays} days away`;
 }
-export function formatGregorianDate(date) {
- return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric' }).format(date);
+export function formatGregorianDate(date, withYear = false) {
+ return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', ...(withYear ? { year: 'numeric' } : {}) }).format(date);
 }

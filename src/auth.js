@@ -7,8 +7,15 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 export const cloudEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 export const googleNativeEnabled = Boolean(cloudEnabled && GOOGLE_CLIENT_ID);
 
+// A stalled request can stay open for minutes, and sync and sign-out wait on them.
+const REQUEST_TIMEOUT_MS = 15000;
+const boundedFetch = (input, init = {}) => fetch(input, {
+  ...init, signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+});
+
 export const supabase = cloudEnabled
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { fetch: boundedFetch },
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -102,5 +109,9 @@ export async function signInWithGoogle() {
 export async function signOut() {
   if (!supabase) return;
   const { error } = await supabase.auth.signOut({ scope: 'local' });
-  if (error) throw error;
+  if (!error) return;
+  // Supabase clears this device's session even if the server can't be reached,
+  // so that case is a successful local sign-out, not a failure.
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (data.session || sessionError) throw error;
 }

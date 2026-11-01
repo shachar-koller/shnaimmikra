@@ -7,13 +7,16 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       injectRegister: false,
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,webmanifest,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
+        // The plugin only sets these itself when it injects the registration.
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],

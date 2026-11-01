@@ -57,6 +57,7 @@ const expandedReadings = new Map();
 const commentaryViews = new Map();
 let completedFeedback = null, bulkReading = null;
 const viewKey = id => `${user?.id || 'guest'}:${year}:${id}`;
+const cycleLabel = cycle => `${cycle}–${String(cycle + 1).slice(2)}`;
 const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Onkelos', rashi: peirushName(data.peirushName) }[reading]);
 function commentaryView(id, progress) {
   const key = viewKey(id);
@@ -163,6 +164,8 @@ function render() {
     return;
   }
   const rows = all();
+  const thisCycle = cycleYear(new Date(), data.israel);
+  const inThisCycle = year === thisCycle;
   const weekly = currentParsha(rows);
   const weeklyRows = rows.filter(r => r.date.getTime() === weekly.date.getTime());
   const weeklyNames = weeklyRows.flatMap(r => r.names);
@@ -176,7 +179,7 @@ function render() {
   // Everything starts folded; only the person reading decides what to open.
   if (!expandedReadings.has(key)) expandedReadings.set(key, new Set());
   const expanded = expandedReadings.get(key);
-  const browsing = !weeklyRows.some(row => row.id === item.id);
+  const offWeek = !weeklyRows.some(row => row.id === item.id);
   const celebrating = completedFeedback === key && complete(p);
   const done = rows.filter(r => complete(state(r.id))).length;
   const weeklySteps = weeklyRows.reduce((sum, r) => sum + steps(state(r.id)), 0);
@@ -190,8 +193,12 @@ function render() {
     : `<button class="signinbtn" id="account">Sign in with Google</button>`;
 
   const upcomingShabbos = localShabbosDate(weekly.date);
-  const countdownText = shabbosCountdown(upcomingShabbos);
-  const shabbosDateText = formatGregorianDate(upcomingShabbos);
+  // "This week" and a countdown only mean something inside the cycle happening now.
+  const summary = inThisCycle
+    ? { title: 'Upcoming Shabbos', main: shabbosCountdown(upcomingShabbos), detail: formatGregorianDate(upcomingShabbos) }
+    : year < thisCycle
+      ? { title: 'Past cycle', main: cycleLabel(year), detail: `Ended ${formatGregorianDate(localShabbosDate(rows.at(-1).date), true)}` }
+      : { title: 'Future cycle', main: cycleLabel(year), detail: `Begins ${formatGregorianDate(localShabbosDate(rows[0].date), true)}` };
 
   const counters = ['.weeklyprogress .progressvalue', '.yearprogress .progressvalue', '.cyccount'];
   const previousCounts = counters.map(selector => document.querySelector(selector)?.textContent);
@@ -211,7 +218,7 @@ function render() {
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </header>
-      ${browsing ? `<p class="browsing" data-key="browsing"><span>Shabbos of ${formatGregorianDate(localShabbosDate(item.date))}</span><button type="button" id="back-to-week" class="text-action">Back to this week</button></p>` : ''}
+      ${offWeek || !inThisCycle ? `<p class="browsing" data-key="browsing"><span>Shabbos of ${formatGregorianDate(localShabbosDate(item.date), !inThisCycle)}</span>${inThisCycle ? '<button type="button" id="back-to-week" class="text-action">Back to this week</button>' : ''}</p>` : ''}
 
       <div class="cards">
         <section class="card${celebrating ? ' celebrate' : ''}" id="reading" aria-label="Shnayim Mikra for ${titleName(item.names)}">
@@ -238,7 +245,7 @@ function render() {
 
         <div class="sidecol">
           <section class="card yearly" aria-label="Yearly progress">
-            <div class="weeklyprogress" aria-label="This week's progress">
+            ${inThisCycle ? `<div class="weeklyprogress" aria-label="This week's progress">
               <div class="progressheading"><h2 class="kicker">This week</h2><p class="progressvalue">${weeklySteps}<span> / ${weeklyTotal}</span></p></div>
               <div class="weeksegments" style="--weekly-steps:${weeklyTotal}" role="img" aria-label="${weeklySteps} of ${weeklyTotal} readings completed for ${titleName(weeklyNames)}">${Array.from({ length: weeklyTotal }, (_, i) => `<span class="${weeklySteps > i ? 'filled' : ''}"></span>`).join('')}</div>
               <p class="bigsub">${titleName(weeklyNames)} readings</p>
@@ -246,18 +253,18 @@ function render() {
                 const detail = readingDetail(state(row.id));
                 return detail ? `<p class="weekly-detail">${weeklyRows.length > 1 ? `${titleName(row.names)}: ` : ''}${escapeHtml(detail)}</p>` : '';
               }).join('')}
-            </div>
+            </div>` : ''}
             <div class="yearprogress">
-              <div class="progressheading"><h2 class="kicker">This year</h2><p class="progressvalue bignum">${done}<span> / ${rows.length}</span></p></div>
+              <div class="progressheading"><h2 class="kicker">${inThisCycle ? 'This year' : 'This cycle'}</h2><p class="progressvalue bignum">${done}<span> / ${rows.length}</span></p></div>
               <div class="bar" role="img" aria-label="${done} of ${rows.length} parshiyos completed"><div style="width:${rows.length ? Math.round((done / rows.length) * 100) : 0}%"></div></div>
               <p class="bigsub">Parshiyos completed</p>
             </div>
           </section>
 
-          <section class="card shabbos" aria-label="Upcoming Shabbos">
-            <h2 class="kicker">Upcoming Shabbos</h2>
-            <p class="shabbos-count">${countdownText}</p>
-            <p class="shabbos-date">${shabbosDateText}</p>
+          <section class="card shabbos" aria-label="${summary.title}">
+            <h2 class="kicker">${summary.title}</h2>
+            <p class="shabbos-count">${summary.main}</p>
+            <p class="shabbos-date">${summary.detail}</p>
           </section>
         </div>
       </div>
@@ -284,14 +291,14 @@ function render() {
           ${seferRows.map((r, i) => {
             const s = state(r.id);
             const isDone = complete(s);
-            const isCur = weeklyRows.some(w => w.id === r.id);
+            const isCur = inThisCycle && weeklyRows.some(w => w.id === r.id);
             const isSel = r.id === item.id;
             const numSteps = steps(s);
             const fraction = aliyahSteps(s) / 21;
             const isPartial = fraction > 0 && !isDone;
             const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done, ${readingDetail(s) || 'In progress'}` : 'Not started';
             return `<li>
-              <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${st}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
+              <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${escapeHtml(st)}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
                 <span class="parshanum" aria-hidden="true">${i + 1}</span>
                 <span class="parshaen">${titleName(r.names)}</span>
                 <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? numSteps ? `${numSteps}/3 readings` : 'In progress' : isCur ? 'Current' : ''}</span>
@@ -604,7 +611,7 @@ function settings() {
       <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
     </label>
     <label class="setting-row">Cycle
-      <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${y}–${String(y + 1).slice(2)}</option>`).join('')}</select>
+      <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${cycleLabel(y)}</option>`).join('')}</select>
     </label>
     </div>
     </section>

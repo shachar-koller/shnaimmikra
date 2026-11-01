@@ -69,6 +69,43 @@ test('peirush names render as text and blank names fall back to Rashi', async ({
   await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Rashi');
 });
 
+test('a crafted peirush name cannot inject markup through the parsha list', async ({ page }) => {
+  const peirushName = '"><img src=x onerror="window.injected=true">';
+  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
+    key, value: { ...seed, peirushName, progress: { '5787:Noach': { rashi_1: true } } },
+  });
+  await page.reload();
+  const row = page.locator('[data-parsha="Noach"]');
+  await expect(row).toHaveAttribute('aria-label', new RegExp(`${peirushName.replace(/[?()]/g, '\\$&')}: 1 of 7 aliyos`));
+  await expect(page.locator('img[src="x"]')).toHaveCount(0);
+  expect(await page.evaluate(() => window.injected)).toBeUndefined();
+});
+
+test('a past cycle is labeled as past, without this week or a current parsha', async ({ page }) => {
+  await page.locator('#settings').click();
+  await page.locator('#cyear').selectOption('5786');
+  await page.locator('#save-settings').click();
+  const summary = page.locator('.card.shabbos');
+  await expect(summary.locator('h2')).toHaveText('Past cycle');
+  await expect(summary.locator('.shabbos-count')).toHaveText('5786–87');
+  await expect(summary.locator('.shabbos-date')).toHaveText('Ended October 4, 2026');
+  await expect(page.locator('.weeklyprogress')).toHaveCount(0);
+  await expect(page.locator('.yearprogress h2')).toHaveText('This cycle');
+  await expect(page.locator('.parsharow.current')).toHaveCount(0);
+  await expect(page.locator('.browsing')).toContainText('2026');
+  await expect(page.locator('#back-to-week')).toHaveCount(0);
+});
+
+test('a future cycle says when it begins', async ({ page }) => {
+  await page.locator('#settings').click();
+  await page.locator('#cyear').selectOption('5788');
+  await page.locator('#save-settings').click();
+  const summary = page.locator('.card.shabbos');
+  await expect(summary.locator('h2')).toHaveText('Future cycle');
+  await expect(summary.locator('.shabbos-date')).toHaveText(/^Begins .* 2027$/);
+  await expect(page.locator('.parsharow.current')).toHaveCount(0);
+});
+
 test('default theme is grayscale', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'grayscale');
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(245, 245, 245)');
@@ -207,6 +244,29 @@ test('failed cloud reset preserves local progress and shows a retryable error', 
   await expect(page.locator('#delete-status')).toContainText('Could not delete');
   await expect(page.locator('#confirm-delete')).toBeEnabled();
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, accountKey)).toEqual(before);
+});
+
+test('sign out succeeds locally when the server cannot be reached', async ({ page }) => {
+  await mockAccount(page);
+  await page.route('**/auth/v1/logout*', route => route.abort());
+  await page.locator('#settings').click();
+  await page.locator('#settings-signout').click();
+  await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible();
+  await expect(page.locator('#announcement')).toContainText('Signed out');
+});
+
+test('a stalled sync request times out instead of blocking sign out, and keeps the edit', async ({ page }) => {
+  test.setTimeout(45000);
+  await mockAccount(page);
+  await page.route('**/rest/v1/**', () => { /* Never answer. */ });
+  await page.locator('[data-reading="mikra1"]').click();
+  await page.locator('#settings').click();
+  await page.locator('#settings-signout').click();
+  await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible({ timeout: 25000 });
+  await expect(page.locator('#announcement')).toContainText('Signed out');
+  const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), accountKey);
+  expect(saved.progress['5787:Noach'].mikra1_1).toBe(true);
+  expect(saved.pending.progress['5787:Noach'].mikra1_1.value).toBe(true);
 });
 
 test('sign out flushes progress, ends only this session, and separates account data', async ({ page }) => {

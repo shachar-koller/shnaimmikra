@@ -93,4 +93,5 @@ test('shabbosCountdown computes relative countdown', () => {
 test('formatGregorianDate formats month and day', () => {
   const d = new Date(2026, 9, 17);
   assert.equal(formatGregorianDate(d), 'October 17');
+  assert.equal(formatGregorianDate(d, true), 'October 17, 2026');
 });
