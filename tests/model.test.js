@@ -1,3 +1,4 @@
+import { checkedReadings } from './fixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -47,11 +48,11 @@ test('double parshiyos have separate identities, numbers, and a shared Shabbos',
 });
 
 test('progress completion checks all readings', () => {
-  assert.equal(complete({ mikra1: true, mikra2: true, onkelos: true }), true);
-  assert.equal(complete({ mikra1: true, mikra2: true, rashi: true }), true);
-  assert.equal(complete({ mikra1: true, mikra2: true }), false);
-  assert.equal(steps({ mikra1: true, mikra2: true, rashi: true }), 3);
-  assert.equal(steps({ mikra1: true }), 1);
+  assert.equal(complete(checkedReadings('mikra1', 'mikra2', 'onkelos')), true);
+  assert.equal(complete(checkedReadings('mikra1', 'mikra2', 'rashi')), true);
+  assert.equal(complete(checkedReadings('mikra1', 'mikra2')), false);
+  assert.equal(steps(checkedReadings('mikra1', 'mikra2', 'rashi')), 3);
+  assert.equal(steps(checkedReadings('mikra1')), 1);
 });
 
 test('localShabbosDate preserves Hebcal local midnight', () => {

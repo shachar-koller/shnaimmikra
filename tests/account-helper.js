@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test';
+import { checkedReadings } from './fixtures.js';
 
 export async function mockAccount(page, { failDelete = false, delayedWrite = false, initialRows } = {}) {
   const userId = '11111111-1111-4111-8111-111111111111';
   const requests = [];
-  let rows = initialRows || [{ year: 5786, parsha_id: 'Bereshit', mikra1: true, mikra2: true, rashi: true, onkelos: false }];
+  let rows = initialRows || [{ year: 5786, parsha_id: 'Bereshit', ...checkedReadings('mikra1', 'mikra2', 'rashi') }];
   await page.route('**/auth/v1/**', async route => {
     requests.push({ method: route.request().method(), url: route.request().url() });
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: userId, email: 'reader@example.com', app_metadata: {}, user_metadata: {}, aud: 'authenticated' }) });
@@ -28,7 +29,6 @@ export async function mockAccount(page, { failDelete = false, delayedWrite = fal
       const incoming = request.postDataJSON();
       for (const row of Array.isArray(incoming) ? incoming : [incoming]) {
         const current = rows.find(r => r.year === row.year && r.parsha_id === row.parsha_id);
-        if (current && request.headers().prefer?.includes('ignore-duplicates')) continue;
         rows = rows.filter(r => r !== current);
         rows.push({ ...current, ...row });
       }

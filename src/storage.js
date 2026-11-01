@@ -1,26 +1,28 @@
-import { splitDoubleProgress, peirushName } from './progress.js';
+import { peirushName } from './progress.js';
+import { READINGS, readingChecks, aliyahField, normalizeProgress, readingPatch, applyReadingPatch } from './readings.js';
+export { READINGS, ALIYAH_FIELDS } from './readings.js';
 
 // Keep the original key as guest storage. Its owner cannot be inferred safely.
 export const GUEST_KEY = 'shnaim-mikra-v1';
 export const storageKey = userId => userId ? `shnaim-mikra-v2:account:${userId}` : GUEST_KEY;
-export const READINGS = ['mikra1', 'mikra2', 'onkelos', 'rashi'];
 export const themes = [
   { id: 'grayscale', label: 'Grayscale', color: '#f5f5f5' },
   { id: 'dark-grayscale', label: 'Dark Grayscale', color: '#171717' },
   { id: 'forest', label: 'Forest', color: '#faf9f6' },
   { id: 'forest-dark', label: 'Forest Dark', color: '#151817' },
+  { id: 'parchment', label: 'Parchment', color: '#f5efe1' },
+  { id: 'midnight', label: 'Midnight', color: '#0e1320' },
 ];
 export function validTheme(value) {
-  const id = { light: 'grayscale', dark: 'dark-grayscale' }[value] || value;
-  return themes.some(theme => theme.id === id) ? id : 'grayscale';
+  return themes.some(theme => theme.id === value) ? value : 'grayscale';
 }
 export const emptyData = () => ({ progress: {}, israel: false, commentary: 'onkelos', theme: 'grayscale' });
 export function normalizeData(raw = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid saved data');
   const progress = {};
-  for (const [key, value] of Object.entries(splitDoubleProgress(raw.progress || {}))) {
+  for (const [key, value] of Object.entries(raw.progress || {})) {
     if (!/^\d{4}:.+/.test(key) || !value || typeof value !== 'object') continue;
-    const checked = Object.fromEntries(READINGS.filter(field => value[field] === true).map(field => [field, true]));
+    const checked = normalizeProgress(value);
     if (Object.keys(checked).length) progress[key] = checked;
   }
   return {
@@ -38,11 +40,7 @@ export function createRepository(storage) {
   function read(userId) {
     const raw = JSON.parse(storage.getItem(storageKey(userId)) || 'null');
     if (raw?.storageVersion && raw.storageVersion !== 2) throw new Error('Unsupported storage version');
-    const record = { data: normalizeData(raw || emptyData()), pending: userId ? (raw?.pending || emptyPending()) : emptyPending() };
-    if (raw?.progress && Object.keys(raw.progress).some(key => key.includes(':') && !Object.hasOwn(splitDoubleProgress(raw.progress), key))) {
-      write(userId, record);
-    }
-    return record;
+    return { data: normalizeData(raw || emptyData()), pending: userId ? (raw?.pending || emptyPending()) : emptyPending() };
   }
   function write(userId, record) {
     const serialized = JSON.stringify(userId
@@ -58,13 +56,14 @@ export function createRepository(storage) {
     return write(userId, record);
   }
   function patchReading(record, userId, key, patch) {
-    const next = { ...record.data.progress[key], ...patch };
-    const checked = Object.fromEntries(READINGS.filter(field => next[field]).map(field => [field, true]));
+    const expanded = readingPatch(patch);
+    if (!Object.keys(expanded).length) return;
+    const checked = applyReadingPatch(record.data.progress[key], expanded);
     if (Object.keys(checked).length) record.data.progress[key] = checked;
     else delete record.data.progress[key];
     if (userId) {
       const pending = record.pending.progress[key] ||= {};
-      for (const [field, value] of Object.entries(patch)) pending[field] = operation(value);
+      for (const [field, value] of Object.entries(expanded)) pending[field] = operation(value);
     }
   }
   function patchSettings(record, userId, patch) {
@@ -95,13 +94,20 @@ export function createRepository(storage) {
       record.data.progress = {};
       // Keep edits made after the reset was requested, including in another tab.
       for (const [key, fields] of Object.entries(record.pending.progress)) {
-        record.data.progress[key] = pendingValues(fields);
+        const checked = applyReadingPatch({}, pendingValues(fields));
+        if (Object.keys(checked).length) record.data.progress[key] = checked;
       }
     }),
     importData: (userId, imported, settings = true) => change(userId, record => {
       // Explicit, additive import only. Normal synchronization never unions caches.
       for (const [key, value] of Object.entries(imported.progress)) {
-        const patch = Object.fromEntries(READINGS.filter(field => value[field] === true && (record.pending.reset || !record.data.progress[key]?.[field])).map(field => [field, true]));
+        const patch = {};
+        for (const reading of READINGS) {
+          const current = readingChecks(record.pending.reset ? {} : record.data.progress[key], reading);
+          readingChecks(value, reading).forEach((checked, index) => {
+            if (checked && !current[index]) patch[aliyahField(reading, index)] = true;
+          });
+        }
         if (Object.keys(patch).length) patchReading(record, userId, key, patch);
       }
       if (settings) patchSettings(record, userId, { ...imported, peirushName: imported.peirushName });
@@ -122,8 +128,8 @@ export function createRepository(storage) {
       // Server state is authoritative except for explicit, unacknowledged edits.
       record.data.progress = normalizeData({ progress }).progress;
       for (const [key, fields] of Object.entries(record.pending.progress)) {
-        const next = { ...record.data.progress[key], ...pendingValues(fields) };
-        if (READINGS.some(field => next[field])) record.data.progress[key] = next;
+        const next = applyReadingPatch(record.data.progress[key], pendingValues(fields));
+        if (Object.keys(next).length) record.data.progress[key] = next;
         else delete record.data.progress[key];
       }
       if (profile) {

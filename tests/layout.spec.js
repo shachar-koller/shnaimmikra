@@ -11,6 +11,9 @@ test.describe('parsha highlighting on touch devices', () => {
     await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
     await page.goto('/');
     expect(await page.evaluate(() => matchMedia('(hover: hover)').matches)).toBe(false);
+    const devtools = await page.context().newCDPSession(page);
+    await devtools.send('DOM.enable');
+    await devtools.send('CSS.enable');
 
     for (const [id, title] of [
       ['Lech-Lecha', 'Parshas Lech Lecha'],
@@ -24,9 +27,13 @@ test.describe('parsha highlighting on touch devices', () => {
       await expect(selected).toHaveAttribute('aria-pressed', 'true');
       await expect(selected).toHaveCSS('background-color', 'rgb(231, 231, 231)');
 
-      // Force the :hover state that touch browsers can retain after a tap.
-      const unselected = page.locator(`[data-parsha="${id === 'Noach' ? 'Lech-Lecha' : 'Noach'}"]`);
-      await unselected.hover();
+      // Force sticky :hover directly. Moving a mouse on a touch-emulated page
+      // does not reliably activate hover after the longer checklist scrolls.
+      const selector = `[data-parsha="${id === 'Noach' ? 'Lech-Lecha' : 'Noach'}"]`;
+      const unselected = page.locator(selector);
+      const { root } = await devtools.send('DOM.getDocument');
+      const { nodeId } = await devtools.send('DOM.querySelector', { nodeId: root.nodeId, selector });
+      await devtools.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: ['hover'] });
       expect(await unselected.evaluate(row => ({
         hovered: row.matches(':hover'),
         selected: row.getAttribute('aria-pressed'),
@@ -116,7 +123,7 @@ for (const width of [393, 1280]) {
       }
       await expect(firstReading).toBeFocused();
       await expect(firstReading).toHaveCSS('outline-style', 'solid');
-      for (const reading of ['mikra1', 'mikra2', 'rashi']) {
+      for (const reading of ['mikra1', 'mikra2', 'onkelos']) {
         await page.locator(`[data-reading="${reading}"]`).focus();
         await page.keyboard.press('Space');
       }

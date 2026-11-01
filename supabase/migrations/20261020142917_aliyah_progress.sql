@@ -1,0 +1,70 @@
+-- Store aliyah checks only; reading totals are derived in the app.
+-- Existing owner-only RLS and table grants cover the new columns.
+alter function public.touch_updated_at() set search_path = '';
+
+alter table public.progress
+  add column mikra1_1 boolean not null default false,
+  add column mikra1_2 boolean not null default false,
+  add column mikra1_3 boolean not null default false,
+  add column mikra1_4 boolean not null default false,
+  add column mikra1_5 boolean not null default false,
+  add column mikra1_6 boolean not null default false,
+  add column mikra1_7 boolean not null default false,
+  add column mikra2_1 boolean not null default false,
+  add column mikra2_2 boolean not null default false,
+  add column mikra2_3 boolean not null default false,
+  add column mikra2_4 boolean not null default false,
+  add column mikra2_5 boolean not null default false,
+  add column mikra2_6 boolean not null default false,
+  add column mikra2_7 boolean not null default false,
+  add column onkelos_1 boolean not null default false,
+  add column onkelos_2 boolean not null default false,
+  add column onkelos_3 boolean not null default false,
+  add column onkelos_4 boolean not null default false,
+  add column onkelos_5 boolean not null default false,
+  add column onkelos_6 boolean not null default false,
+  add column onkelos_7 boolean not null default false,
+  add column rashi_1 boolean not null default false,
+  add column rashi_2 boolean not null default false,
+  add column rashi_3 boolean not null default false,
+  add column rashi_4 boolean not null default false,
+  add column rashi_5 boolean not null default false,
+  add column rashi_6 boolean not null default false,
+  add column rashi_7 boolean not null default false;
+
+-- Convert saved account checkmarks once, then remove the old fields.
+update public.progress set
+  mikra1_1 = mikra1,
+  mikra1_2 = mikra1,
+  mikra1_3 = mikra1,
+  mikra1_4 = mikra1,
+  mikra1_5 = mikra1,
+  mikra1_6 = mikra1,
+  mikra1_7 = mikra1,
+  mikra2_1 = mikra2,
+  mikra2_2 = mikra2,
+  mikra2_3 = mikra2,
+  mikra2_4 = mikra2,
+  mikra2_5 = mikra2,
+  mikra2_6 = mikra2,
+  mikra2_7 = mikra2,
+  onkelos_1 = onkelos,
+  onkelos_2 = onkelos,
+  onkelos_3 = onkelos,
+  onkelos_4 = onkelos,
+  onkelos_5 = onkelos,
+  onkelos_6 = onkelos,
+  onkelos_7 = onkelos,
+  rashi_1 = rashi,
+  rashi_2 = rashi,
+  rashi_3 = rashi,
+  rashi_4 = rashi,
+  rashi_5 = rashi,
+  rashi_6 = rashi,
+  rashi_7 = rashi;
+
+alter table public.progress
+  drop column mikra1,
+  drop column mikra2,
+  drop column onkelos,
+  drop column rashi;

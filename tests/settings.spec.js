@@ -1,3 +1,5 @@
+import { checkedReadings } from './fixtures.js';
+import { wholeReadingPatch } from '../src/readings.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { mockAccount } from './account-helper.js';
@@ -7,8 +9,8 @@ const accountKey = 'shnaim-mikra-v2:account:11111111-1111-4111-8111-111111111111
 const seed = {
   israel: false, commentary: 'rashi', theme: 'forest-dark',
   progress: {
-    '5786:Bereshit': { mikra1: true, mikra2: true, rashi: true },
-    '5787:Noach': { mikra1: true, onkelos: true },
+    '5786:Bereshit': checkedReadings('mikra1', 'mikra2', 'rashi'),
+    '5787:Noach': checkedReadings('mikra1', 'onkelos'),
   },
 };
 
@@ -25,20 +27,24 @@ async function seedProgress(page) {
 
 test('custom peirush persists, keeps checkmarks, and appears in exports', async ({ page }) => {
   await seedProgress(page);
-  await expect(page.locator('[data-reading="onkelos"]')).toHaveText('Onkelos');
+  await expect(page.locator('[data-reading-row="onkelos"] .reading-name')).toHaveText('Onkelos');
   await page.locator('#settings').click();
   await expect(page.getByLabel('Peirush', { exact: true })).toHaveValue('Rashi');
   await expect(page.locator('.settings-section h3')).toHaveCount(0);
   await page.getByLabel('Peirush', { exact: true }).fill('Ramban');
   await page.locator('#save-settings').click();
-  await expect(page.locator('[data-reading="rashi"]')).toHaveText('Ramban');
+  await expect(page.locator('#commentary-rashi')).toHaveText('Ramban');
   await page.reload();
-  await expect(page.locator('[data-reading="rashi"]')).toHaveAccessibleName('Ramban commentary, not done');
+  await page.locator('#commentary-rashi').click();
+  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Ramban');
+  await expect(page.locator('[data-reading="rashi"]')).toHaveAccessibleName('Noach, Ramban, Not started. Mark all seven aliyos');
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, key)).toEqual(seed.progress);
+  await page.locator('#commentary-onkelos').click();
   await expect(page.locator('[data-reading="onkelos"]')).toHaveAttribute('aria-checked', 'true');
   await page.locator('[data-reading="onkelos"]').click();
+  await page.locator('#commentary-rashi').click();
   await page.locator('[data-reading="rashi"]').click();
-  await expect(page.locator('[data-reading="onkelos"]')).toBeDisabled();
+  await expect(page.locator('[data-reading="rashi"]')).toHaveAttribute('aria-checked', 'true');
   await page.locator('#settings').click();
   await expect(page.getByLabel('Peirush', { exact: true })).toHaveValue('Ramban');
   const downloadPromise = page.waitForEvent('download');
@@ -51,14 +57,16 @@ test('peirush names render as text and blank names fall back to Rashi', async ({
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('<img src=x onerror=alert(1)>');
   await page.keyboard.press('Escape');
-  await expect(page.locator('[data-reading="rashi"]')).toHaveText('<img src=x onerror=alert(1)>');
-  await expect(page.locator('[data-reading="rashi"] img')).toHaveCount(0);
+  await expect(page.locator('#commentary-rashi')).toHaveText('<img src=x onerror=alert(1)>');
+  await page.locator('#commentary-rashi').click();
+  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('<img src=x onerror=alert(1)>');
+  await expect(page.locator('#reading img')).toHaveCount(0);
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('   ');
   await page.locator('#save-settings').click();
-  await expect(page.locator('[data-reading="rashi"]')).toHaveText('Rashi');
+  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Rashi');
   await page.reload();
-  await expect(page.locator('[data-reading="rashi"]')).toHaveText('Rashi');
+  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Rashi');
 });
 
 test('default theme is grayscale', async ({ page }) => {
@@ -72,7 +80,7 @@ test('default theme is grayscale', async ({ page }) => {
 
 test('all themes apply immediately, persist, and keep progress', async ({ page }) => {
   await seedProgress(page);
-  for (const [theme, background] of [['grayscale', 'rgb(245, 245, 245)'], ['dark-grayscale', 'rgb(23, 23, 23)'], ['forest', 'rgb(250, 249, 246)'], ['forest-dark', 'rgb(21, 24, 23)']]) {
+  for (const [theme, background] of [['grayscale', 'rgb(245, 245, 245)'], ['dark-grayscale', 'rgb(23, 23, 23)'], ['forest', 'rgb(250, 249, 246)'], ['forest-dark', 'rgb(21, 24, 23)'], ['parchment', 'rgb(245, 239, 225)'], ['midnight', 'rgb(14, 19, 32)']]) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.locator(`[data-theme-choice="${theme}"]`).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
@@ -153,31 +161,21 @@ test('signed-in reset deletes all account cycles after pending writes finish', a
   await expect(page.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(0);
 });
 
-test('account migration replaces combined records before independent changes sync', async ({ page }) => {
+test('account edits to one half of a double week leave the other half unchanged', async ({ page }) => {
+  const finished = checkedReadings('mikra1', 'mikra2', 'onkelos');
   const cloud = await mockAccount(page, { initialRows: [
-    { year: 5786, parsha_id: 'Tazria-Metzora', mikra1: true, mikra2: false, onkelos: false, rashi: false },
-    { year: 5787, parsha_id: 'Chukat-Balak', mikra1: true, mikra2: true, onkelos: true, rashi: false },
-    { year: 5787, parsha_id: 'Lech-Lecha', mikra1: true, mikra2: false, onkelos: false, rashi: false },
+    { year: 5787, parsha_id: 'Chukat', ...finished },
+    { year: 5787, parsha_id: 'Balak', ...finished },
   ] });
-  expect(cloud.getRows().map(row => `${row.year}:${row.parsha_id}`).sort()).toEqual([
-    '5786:Metzora', '5786:Tazria', '5787:Balak', '5787:Chukat', '5787:Lech-Lecha',
-  ]);
-  const deletions = cloud.requests.filter(r => r.method === 'DELETE');
-  expect(deletions).toHaveLength(2);
-  for (const request of deletions) {
-    const params = new URL(request.url).searchParams;
-    expect(params.get('user_id')).toBe('eq.11111111-1111-4111-8111-111111111111');
-    expect(params.has('year')).toBe(true);
-    expect(params.has('parsha_id')).toBe(true);
-  }
-
   await page.locator('[data-sefer-tab="3"]').click();
   await page.locator('[data-parsha="Balak"]').click();
   for (const reading of ['mikra1', 'mikra2', 'onkelos']) {
     await page.locator(`[data-reading="${reading}"]`).click();
   }
-  await expect.poll(() => cloud.getRows().find(row => row.year === 5787 && row.parsha_id === 'Balak')).toMatchObject({ mikra1: false, mikra2: false, onkelos: false });
-  expect(cloud.getRows().find(row => row.year === 5787 && row.parsha_id === 'Chukat')).toMatchObject({ mikra1: true, mikra2: true, onkelos: true });
+  await expect.poll(() => cloud.getRows().find(row => row.parsha_id === 'Balak')).toMatchObject({
+    ...wholeReadingPatch('mikra1', false), ...wholeReadingPatch('mikra2', false), ...wholeReadingPatch('onkelos', false),
+  });
+  expect(cloud.getRows().find(row => row.parsha_id === 'Chukat')).toMatchObject(finished);
   await page.reload();
   await expect(page.locator('#announcement')).toContainText('Progress synced');
   await page.locator('[data-sefer-tab="3"]').click();
@@ -219,9 +217,9 @@ test('sign out flushes progress, ends only this session, and separates account d
   await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible();
   await expect(page.locator('#announcement')).toContainText('Signed out');
   expect(cloud.requests.some(r => r.url.includes('/logout?scope=local'))).toBe(true);
-  expect(cloud.getRows().some(r => r.parsha_id === 'Noach' && r.mikra1)).toBe(true);
+  expect(cloud.getRows().some(r => r.parsha_id === 'Noach' && r.mikra1_1)).toBe(true);
   await page.reload();
   await page.getByRole('button', { name: 'Continue without an account' }).click();
   await expect(page.locator('[data-reading="mikra1"]')).toHaveAttribute('aria-checked', 'false');
-  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress['5787:Noach'].mikra1, accountKey)).toBe(true);
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress['5787:Noach'].mikra1_1, accountKey)).toBe(true);
 });

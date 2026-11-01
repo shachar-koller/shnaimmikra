@@ -1,6 +1,5 @@
-import { DOUBLE_PARSHIYOS } from './model.js';
-import { splitDoubleProgress } from './progress.js';
-import { READINGS, hasPending, pendingValues } from './storage.js';
+import { hasPending, pendingValues } from './storage.js';
+import { ALIYAH_FIELDS, readingPatch } from './readings.js';
 
 // The adapter receives its client so sync remains independent of browser/auth setup.
 export function createCloudAdapter(client) {
@@ -8,7 +7,7 @@ export function createCloudAdapter(client) {
     const rows = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error } = await client.from('progress')
-        .select('year, parsha_id, mikra1, mikra2, onkelos, rashi')
+        .select(['year', 'parsha_id', ...ALIYAH_FIELDS].join(', '))
         .eq('user_id', userId).order('year').order('parsha_id').range(offset, offset + 999);
       if (error) throw error;
       rows.push(...data);
@@ -22,24 +21,9 @@ export function createCloudAdapter(client) {
         pullAllProgress(userId),
       ]);
       if (error) throw error;
-      const progress = splitDoubleProgress(Object.fromEntries(rows.map(row => [
-        `${row.year}:${row.parsha_id}`, Object.fromEntries(READINGS.map(field => [field, row[field] === true])),
-      ])));
-      // One-time legacy conversion, without overwriting individually edited records.
-      const pairs = new Map(DOUBLE_PARSHIYOS.map(pair => [pair.join('-'), pair]));
-      for (const row of rows.filter(row => pairs.has(row.parsha_id))) {
-        const replacements = pairs.get(row.parsha_id).map(parsha_id => ({
-          user_id: userId, year: row.year, parsha_id,
-          ...Object.fromEntries(READINGS.map(field => [field, row[field] === true])),
-        }));
-        const { error: saveError } = await client.from('progress').upsert(replacements, {
-          onConflict: 'user_id,year,parsha_id', ignoreDuplicates: true,
-        });
-        if (saveError) throw saveError;
-        const { error: deleteError } = await client.from('progress').delete()
-          .eq('user_id', userId).eq('year', row.year).eq('parsha_id', row.parsha_id);
-        if (deleteError) throw deleteError;
-      }
+      const progress = Object.fromEntries(rows.map(row => [
+        `${row.year}:${row.parsha_id}`, readingPatch(row),
+      ]));
       return { progress, profile };
     },
     async writeProgress(userId, key, patch) {
@@ -47,7 +31,7 @@ export function createCloudAdapter(client) {
       // Only edited columns participate in ON CONFLICT UPDATE. Unrelated readings
       // made on another device are preserved. False values are deliberate writes.
       const { error } = await client.from('progress').upsert({
-        user_id: userId, year: Number(key.slice(0, sep)), parsha_id: key.slice(sep + 1), ...patch,
+        user_id: userId, year: Number(key.slice(0, sep)), parsha_id: key.slice(sep + 1), ...readingPatch(patch),
       }, { onConflict: 'user_id,year,parsha_id' });
       if (error) throw error;
     },
@@ -96,13 +80,9 @@ export function createSyncEngine({ repository, cloud, userId, onState = () => {}
     onState('syncing');
     active = lock(`shnaim-sync:${userId}`, async () => {
       if (stopped) return;
-      // Convert old combined cloud records before applying pending unchecks.
-      let remote = await cloud.pull(userId);
-      if (hasPending(repository.read(userId))) {
-        await drain();
-        if (stopped) return;
-        remote = await cloud.pull(userId);
-      }
+      if (hasPending(repository.read(userId))) await drain();
+      if (stopped) return;
+      const remote = await cloud.pull(userId);
       if (stopped) return;
       const record = repository.acceptRemote(userId, remote);
       onData(record.data);

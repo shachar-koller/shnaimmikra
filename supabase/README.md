@@ -14,6 +14,16 @@ explicitly choose to keep progress in their browser.
    only read/write their **own** rows (`auth.uid() = user_id`). `anon` gets nothing.
 4. Verify: Table Editor → `profiles` / `progress` → each should show
    “RLS enabled”, 4 policies each.
+5. Run `supabase/migrations/20261020142917_aliyah_progress.sql` before deploying
+   the aliyah tracking app. Existing projects need this migration too. It adds
+   boolean columns `mikra1_1`–`mikra1_7`, `mikra2_1`–`mikra2_7`,
+   `onkelos_1`–`onkelos_7`, and `rashi_1`–`rashi_7` to the existing table.
+   They are required booleans with a default of `false`. Existing RLS policies
+   and grants cover the new columns. The migration converts saved account
+   checkmarks once and removes the four whole-reading columns. Completion is
+   calculated in the app; there is no totals trigger or support for old clients.
+   Deploy this schema and the updated app together. Old local-only reading
+   formats and backups are not converted by the app.
 
 ## 2. Wire the app
 
@@ -68,10 +78,12 @@ Sign-in is Google-only — no other providers are wired.
   (`security definer`, fixed `search_path = public`).
 - Account storage is separate from guest storage. Guest progress is imported only
   after an explicit preview and confirmation in Settings.
-- Sync sends durable, explicit per-field changes, including `false` for unchecks.
+- Sync sends durable, explicit per-aliyah changes, including `false` for unchecks.
   Cloud refresh replaces cached progress, except for pending local operations.
-  Different reading fields merge independently; the last server-received write
+  Different aliyah fields merge independently; the last server-received write
   wins when devices edit the same field. Empty reading rows remain in the database.
+  Whole-reading shortcuts send all seven fields. Sparse upserts update only the
+  supplied columns, preserving sibling cells.
 - Calendar and commentary choice sync with the account. Theme and the custom
   commentary label stay on the device and are included in JSON backups.
 - Confirmed reset requests survive network failures and retry on reconnect. See

@@ -13,6 +13,9 @@ import { themes } from './storage.js';
 import { createBackup, parseBackup, backupSummary, MAX_BACKUP_BYTES } from './backup.js';
 import { SEFARIM, seferOf, fixName, titleName, heroName, hebrewName } from './names.js';
 import { peirushName, progressText } from './progress.js';
+import { readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
+import { morph } from './morph.js';
+import { slideIn, pop, haptic, celebrate, reducedMotion } from './motion.js';
 
 const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -46,13 +49,48 @@ applyTheme();
 
 const requestedCheckboxLayout = new URLSearchParams(location.search).get('checkboxes');
 document.querySelector('#app').dataset.checkboxLayout = requestedCheckboxLayout === 'left' ? 'left' : 'right';
+// Layout experiment: ?aliyos=chips (default), list, or matrix. Matrix has no folding.
+const requestedAliyahLayout = new URLSearchParams(location.search).get('aliyos');
+const aliyahLayout = ['list', 'matrix'].includes(requestedAliyahLayout) ? requestedAliyahLayout : 'chips';
+document.querySelector('#app').dataset.aliyahLayout = aliyahLayout;
 
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
 let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/weekly sefer
+const expandedReadings = new Map();
+const commentaryViews = new Map();
+let undo = null, undoTimer = null, completedFeedback = null, bulkReading = null;
+const viewKey = id => `${user?.id || 'guest'}:${year}:${id}`;
+const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Onkelos', rashi: peirushName(data.peirushName) }[reading]);
+function commentaryView(id, progress) {
+  const key = viewKey(id);
+  if (commentaryViews.has(key)) return commentaryViews.get(key);
+  let saved;
+  try { saved = sessionStorage.getItem(`commentary-view:${key}`); } catch { /* Optional view preference. */ }
+  if (['onkelos', 'rashi'].includes(saved)) {
+    commentaryViews.set(key, saved);
+    return saved;
+  }
+  // Re-evaluate the fallback after cloud refresh; an empty first render is not
+  // an explicit preference for a different commentary than the saved progress.
+  const rashi = readingCount(progress, 'rashi'), onkelos = readingCount(progress, 'onkelos');
+  return rashi > onkelos ? 'rashi' : onkelos > rashi ? 'onkelos' : data.commentary;
+}
+
+function readingDetail(progress) {
+  const commentary = readingCount(progress, 'rashi') > readingCount(progress, 'onkelos') ? 'rashi' : 'onkelos';
+  const reading = ['mikra1', 'mikra2', commentary].find(key => {
+    const count = readingCount(progress, key);
+    return count > 0 && count < 7;
+  });
+  return reading ? `${readingLabel(reading)}: ${readingCount(progress, reading)} of 7 aliyos` : '';
+}
 
 
 const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+// Always in the DOM so that checking and unchecking can both animate.
+const tick = '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path pathLength="1" d="m5 12 5 5 9-10"/></svg>';
+const chevron = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>';
 const slidersIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>';
 
 
@@ -63,8 +101,8 @@ function save() {
   catch { /* The storage warning stays visible; no unsaved write is sent. */ }
 }
 function setProgress(id, patch) {
-  try { data = session.reading(`${year}:${id}`, patch); }
-  catch { announce('Progress could not be saved. Check browser storage.'); }
+  try { data = session.reading(`${year}:${id}`, patch); return true; }
+  catch { announce('Progress could not be saved. Check browser storage.'); return false; }
 }
 
 function announce(msg) {
@@ -73,7 +111,7 @@ function announce(msg) {
 }
 
 function refreshUnlessDialogOpen() {
-  if (document.querySelector('.dialog')) return;
+  if (document.querySelector('#dialog-root .dialog')) return;
   const focused = document.activeElement;
   const selector = focused?.id ? `#${CSS.escape(focused.id)}`
     : ['reading', 'parsha', 'seferTab'].map(key => focused?.dataset[key] !== undefined
@@ -82,22 +120,41 @@ function refreshUnlessDialogOpen() {
   if (selector) document.querySelector(selector)?.focus({ preventScroll: true });
 }
 
-function readingControl(key, label, on, ariaLabel, disabled = false) {
-  return `<button type="button" class="readrow readingchoice commentarychoice${on ? ' on' : ''}${disabled ? ' unavailable' : ''}" data-reading-row="${key}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}" ${disabled ? 'disabled' : ''}>
-    <span class="rlabel">${label}</span>
-    <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
-  </button>`;
-}
-
-function readingRow(key, label, on, ariaLabel) {
-  return `<li>
-    <div class="readingstep" data-reading-row="${key}">
-      <button type="button" class="readrow readingchoice${on ? ' on' : ''}" data-reading="${key}" role="checkbox" aria-checked="${on}" aria-label="${ariaLabel}">
-        <span class="rlabel">${label}</span>
-        <span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${on ? check : ''}</span>
+function readingRow(reading, item, progress, expanded) {
+  const count = readingCount(progress, reading);
+  const label = escapeHtml(readingLabel(reading));
+  const status = count === 7 ? 'Complete' : count ? `${count} of 7 aliyos` : 'Not started';
+  const checked = count === 7 ? 'true' : count ? 'mixed' : 'false';
+  const matrix = aliyahLayout === 'matrix';
+  const open = matrix || expanded.has(reading);
+  const name = escapeHtml(titleName(item.names));
+  const checks = readingChecks(progress, reading);
+  const next = count ? checks.indexOf(false) : -1;
+  const heading = `<span class="rlabel"><span class="reading-name">${label}</span><span class="reading-meta"><span class="beads" aria-hidden="true">${checks.map((on, index) => `<i class="${on ? 'on' : ''}" style="--i:${index}"></i>`).join('')}</span><span class="reading-count">${status}</span></span></span>`;
+  return `<li class="reading-block${open ? ' open' : ''}${count === 7 ? ' complete' : ''}${bulkReading === reading ? ' bulk' : ''}" data-key="block-${reading}">
+    <div class="readingstep" data-reading-row="${reading}">
+      ${matrix ? `<span class="expand-reading">${heading}</span>`
+        : `<button id="expand-${reading}" type="button" class="expand-reading" data-expand="${reading}" aria-expanded="${open}" aria-controls="aliyos-${reading}" aria-label="${open ? 'Hide' : 'Show'} ${label} aliyos, ${status}">${chevron}${heading}</button>`}
+      <button id="reading-${reading}" type="button" class="reading-check" data-reading="${reading}" role="checkbox" aria-checked="${checked}" aria-label="${name}, ${label}, ${status}. ${count === 7 ? 'Clear' : 'Mark'} all seven aliyos">
+        <span class="rcheck${count === 7 ? ' on' : ''}${count && count < 7 ? ' mixed' : ''}" aria-hidden="true">${tick}<i class="dash"></i></span>
       </button>
     </div>
+    <div id="aliyos-${reading}" class="aliyah-panel">
+      <div class="aliyah-clip">
+        <ol class="aliyah-list" aria-label="${label} aliyos">
+          ${checks.map((on, index) => `<li style="--i:${index}"><button id="aliyah-${reading}-${index}" type="button" class="readrow aliyah-choice${on ? ' on' : ''}${index === next ? ' next' : ''}" data-aliyah="${reading}:${index}" role="checkbox" aria-checked="${on}" aria-label="${name}, ${label}, Aliyah ${index + 1}"><span class="rlabel"><span class="aliyah-word">Aliyah </span>${index + 1}</span><span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${tick}</span></button></li>`).join('')}
+        </ol>
+        ${next >= 0 ? `<p class="next-aliyah">Next unchecked: Aliyah ${next + 1}</p>` : ''}
+      </div>
+    </div>
   </li>`;
+}
+
+// One bar per reading, so progress stays visible while every checklist is folded.
+function parshaMeter(progress, commentary) {
+  const readings = ['mikra1', 'mikra2', commentary];
+  return `<div class="parsha-meter" role="img" aria-label="${steps(progress)} of 3 readings complete">${readings.map(reading =>
+    `<span><i style="width:${Math.round((readingCount(progress, reading) / 7) * 100)}%"></i></span>`).join('')}</div>`;
 }
 
 function render() {
@@ -117,7 +174,16 @@ function render() {
   const weeklyNames = weeklyRows.flatMap(r => r.names);
   const weeklyTotal = weeklyRows.length * 3;
   const item = rows.find(r => r.id === chosen) || weekly;
+  const isDoubleWeek = rows.some(row => row.id !== item.id && row.date.getTime() === item.date.getTime());
   const p = state(item.id);
+  const commentary = commentaryView(item.id, p);
+  const otherCommentary = commentary === 'rashi' ? 'onkelos' : 'rashi';
+  const key = viewKey(item.id);
+  // Everything starts folded; only the person reading decides what to open.
+  if (!expandedReadings.has(key)) expandedReadings.set(key, new Set());
+  const expanded = expandedReadings.get(key);
+  const browsing = !weeklyRows.some(row => row.id === item.id);
+  const celebrating = completedFeedback === key && complete(p);
   const done = rows.filter(r => complete(state(r.id))).length;
   const weeklySteps = weeklyRows.reduce((sum, r) => sum + steps(state(r.id)), 0);
   const itemSefer = seferOf(item.id);
@@ -133,33 +199,47 @@ function render() {
   const countdownText = shabbosCountdown(upcomingShabbos);
   const shabbosDateText = formatGregorianDate(upcomingShabbos);
 
-  document.querySelector('#app').innerHTML = `
+  const counters = ['.weeklyprogress .progressvalue', '.yearprogress .progressvalue', '.cyccount'];
+  const previousCounts = counters.map(selector => document.querySelector(selector)?.textContent);
+
+  morph(document.querySelector('#app'), `
   <a class="skip" href="#reading">Skip to reading</a>
   <div class="page">
     <header class="topbar">
+      <span class="brand">Shnayim Mikra</span>
       <span class="topright">
         <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
         ${accountBtn}
       </span>
     </header>
     <main>
-      <header class="titlerow">
+      <header class="titlerow" data-key="titlerow">
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
       </header>
+      ${browsing ? `<p class="browsing" data-key="browsing"><span>Shabbos of ${formatGregorianDate(localShabbosDate(item.date))}</span><button type="button" id="back-to-week" class="text-action">Back to this week</button></p>` : ''}
 
       <div class="cards">
-        <section class="card" id="reading" aria-label="Shnayim Mikra for ${titleName(item.names)}">
+        <section class="card${celebrating ? ' celebrate' : ''}" id="reading" aria-label="Shnayim Mikra for ${titleName(item.names)}">
+          <div class="reading-card-heading"><h2>Reading progress</h2><span>${steps(p)} of 3 readings</span></div>
+          ${parshaMeter(p, commentary)}
+          ${isDoubleWeek ? '<p class="aliyah-note">Aliyos follow each parsha separately.</p>' : ''}
           <ol class="reads">
-            ${readingRow('mikra1', 'Mikra I', !!p.mikra1, `First reading of the parsha${p.mikra1 ? ', done' : ''}`)}
-            ${readingRow('mikra2', 'Mikra II', !!p.mikra2, `Second reading of the parsha${p.mikra2 ? ', done' : ''}`)}
-            <li class="commentaryrow">
-              <div class="commentaryoptions" role="group" aria-label="Commentary">
-                ${readingControl('rashi', escapeHtml(peirushName(data.peirushName)), !!p.rashi, `${escapeHtml(peirushName(data.peirushName))} commentary, ${p.rashi ? 'done' : 'not done'}`, !!p.onkelos && !p.rashi)}
-                ${readingControl('onkelos', 'Onkelos', !!p.onkelos, `Onkelos, ${p.onkelos ? 'done' : 'not done'}`, !!p.rashi && !p.onkelos)}
-              </div>
-            </li>
+            ${readingRow('mikra1', item, p, expanded)}
+            ${readingRow('mikra2', item, p, expanded)}
           </ol>
+          <div class="commentary-heading">
+            <h3 id="commentary-label">Commentary</h3>
+            <div class="commentary-switch" role="group" aria-labelledby="commentary-label" style="--active:${commentary === 'onkelos' ? 0 : 1}">
+              <span class="switch-pill" aria-hidden="true"></span>
+              ${['onkelos', 'rashi'].map(reading => `<button type="button" id="commentary-${reading}" class="switch-option" data-use-commentary="${reading}" aria-pressed="${reading === commentary}">${escapeHtml(readingLabel(reading))}</button>`).join('')}
+            </div>
+          </div>
+          <ol class="reads commentary-reads" aria-label="Commentary">
+            ${readingRow(commentary, item, p, expanded)}
+          </ol>
+          ${readingCount(p, otherCommentary) ? `<p class="saved-commentary">${escapeHtml(readingLabel(otherCommentary))}: ${readingCount(p, otherCommentary)} of 7 aliyos saved. Either commentary finishes the third reading once all seven are checked; they don't combine.</p>` : ''}
+          <div class="completion-wrap${celebrating ? ' show' : ''}"><p class="completion-feedback" role="status">${celebrating ? `${check}<span>Yasher koach! Parsha complete. All three readings finished.</span>` : ''}</p></div>
         </section>
 
         <div class="sidecol">
@@ -168,6 +248,10 @@ function render() {
               <div class="progressheading"><h2 class="kicker">This week</h2><p class="progressvalue">${weeklySteps}<span> / ${weeklyTotal}</span></p></div>
               <div class="weeksegments" style="--weekly-steps:${weeklyTotal}" role="img" aria-label="${weeklySteps} of ${weeklyTotal} readings completed for ${titleName(weeklyNames)}">${Array.from({ length: weeklyTotal }, (_, i) => `<span class="${weeklySteps > i ? 'filled' : ''}"></span>`).join('')}</div>
               <p class="bigsub">${titleName(weeklyNames)} readings</p>
+              ${weeklyRows.map(row => {
+                const detail = readingDetail(state(row.id));
+                return detail ? `<p class="weekly-detail">${weeklyRows.length > 1 ? `${titleName(row.names)}: ` : ''}${escapeHtml(detail)}</p>` : '';
+              }).join('')}
             </div>
             <div class="yearprogress">
               <div class="progressheading"><h2 class="kicker">This year</h2><p class="progressvalue bignum">${done}<span> / ${rows.length}</span></p></div>
@@ -177,7 +261,7 @@ function render() {
           </section>
 
           <section class="card shabbos" aria-label="Upcoming Shabbos">
-            <h2 class="kicker">Upcoming shabbos</h2>
+            <h2 class="kicker">Upcoming Shabbos</h2>
             <p class="shabbos-count">${countdownText}</p>
             <p class="shabbos-date">${shabbosDateText}</p>
           </section>
@@ -185,7 +269,8 @@ function render() {
       </div>
 
       <section class="card cycle" aria-label="The yearly cycle">
-        <nav class="sefertabs" aria-label="Torah Books">
+        <nav class="sefertabs" aria-label="Torah Books" style="--active:${viewSefer}">
+          <span class="tabpill" aria-hidden="true"></span>
           ${SEFARIM.map((s, i) => {
             const isCurrent = i === viewSefer;
             const sRows = rows.filter(r => seferOf(r.id) === i);
@@ -208,14 +293,15 @@ function render() {
             const isCur = weeklyRows.some(w => w.id === r.id);
             const isSel = r.id === item.id;
             const numSteps = steps(s);
-            const isPartial = numSteps > 0 && !isDone;
-            const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done` : 'Not started';
+            const fraction = aliyahSteps(s) / 21;
+            const isPartial = fraction > 0 && !isDone;
+            const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done, ${readingDetail(s) || 'In progress'}` : 'Not started';
             return `<li>
               <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${st}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
                 <span class="parshanum" aria-hidden="true">${i + 1}</span>
                 <span class="parshaen">${titleName(r.names)}</span>
-                <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? `${numSteps}/3` : isCur ? 'Current' : ''}</span>
-                <span class="statusring ${isDone ? 'complete' : isPartial ? 'partial' : 'empty'}" style="--progress:${numSteps / 3 * 100}%" aria-hidden="true">${isDone ? check : ''}</span>
+                <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? numSteps ? `${numSteps}/3 readings` : 'In progress' : isCur ? 'Current' : ''}</span>
+                <span class="statusring ${isDone ? 'complete' : isPartial ? 'partial' : 'empty'}" style="--progress:${fraction * 100}%" aria-hidden="true">${isDone ? check : ''}</span>
               </button>
             </li>`;
           }).join('')}
@@ -226,10 +312,15 @@ function render() {
       ${storageOK ? '' : '<footer><span class="warn">Progress could not be saved. Check browser storage.</span></footer>'}
     </main>
   </div>
+  <div id="undo-status" class="undo-status" role="status" ${undo && undo.owner === (user?.id || null) ? '' : 'hidden'}>${undo ? `<span class="undo-message">${escapeHtml(undo.label)}</span><button id="undo-reading" class="text-action">Undo</button>` : ''}</div>
   <div id="dialog-root"></div>
-  <div class="sr-only" aria-live="polite" id="announcement"></div>`;
+  <div class="sr-only" aria-live="polite" id="announcement"></div>`);
 
-  wire(rows, weekly, item, p);
+  counters.forEach((selector, index) => {
+    const counter = document.querySelector(selector);
+    if (previousCounts[index] !== undefined && counter?.textContent !== previousCounts[index]) pop(counter);
+  });
+  wire(rows, item);
   if (!user && signInError) {
     signInError = false;
     authDialog();
@@ -238,64 +329,148 @@ function render() {
   }
 }
 
-function wire(rows, weekly, item, p) {
+function wire(rows, item) {
+  const order = id => rows.findIndex(row => row.id === id);
   document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
+    const previous = activeSefer ?? seferOf(item.id);
     activeSefer = Number(b.dataset.seferTab);
     render();
     document.querySelector(`[data-sefer-tab="${activeSefer}"]`).focus({ preventScroll: true });
+    if (activeSefer !== previous) slideIn([document.querySelector('.parshalist')], Math.sign(activeSefer - previous));
   });
   document.querySelectorAll('[data-parsha]').forEach(b => b.onclick = () => {
     const rowTop = b.getBoundingClientRect().top;
+    const direction = Math.sign(order(b.dataset.parsha) - order(item.id));
     chosen = b.dataset.parsha;
     activeSefer = seferOf(chosen);
+    completedFeedback = null;
     render();
     const selected = document.querySelector('.parsharow.selected');
     selected.focus({ preventScroll: true });
     // Keep the clicked row in place when the new parsha heading wraps.
     const offset = selected.getBoundingClientRect().top - rowTop;
     window.scrollTo({ top: window.scrollY + offset, behavior: 'instant' });
+    if (direction) slideIn([document.querySelector('.titlerow'), document.querySelector('#reading')], direction);
     announce(`${titleName(rows.find(r => r.id === chosen).names)} selected`);
   });
-
-  const toggleReading = (k) => {
-    const otherCommentary = k === 'rashi' ? 'onkelos' : k === 'onkelos' ? 'rashi' : null;
-    if (otherCommentary && p[otherCommentary] && !p[k]) return;
-    const nextState = { ...p };
-    nextState[k] = !p[k];
-    setProgress(item.id, { [k]: nextState[k] });
+  const backToWeek = document.querySelector('#back-to-week');
+  if (backToWeek) backToWeek.onclick = () => {
+    const week = currentParsha(rows);
+    const direction = Math.sign(order(week.id) - order(item.id));
+    chosen = null; activeSefer = null; completedFeedback = null;
     render();
-    const again = document.querySelector(`button[data-reading="${k}"]`);
-    if (again) again.focus({ preventScroll: true });
-    if (nextState[k]) {
-      again?.classList.add('just-checked');
-      // Unsupported haptics must never interrupt saving or visual feedback.
-      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        try { navigator.vibrate?.(8); } catch { /* optional device feedback */ }
-      }
-    }
-    const q = state(item.id);
-    const label = k === 'mikra1' ? 'First reading' : k === 'mikra2' ? 'Second reading' : k === 'rashi' ? peirushName(data.peirushName) : 'Onkelos';
-    announce(`${label} ${q[k] ? 'done' : 'not done'}. ${titleName(item.names)}${complete(q) ? ' complete' : `, ${steps(q)} of 3 done`}`);
+    document.querySelector('.parsharow.selected')?.focus({ preventScroll: true });
+    slideIn([document.querySelector('.titlerow'), document.querySelector('#reading')], direction);
+    announce(`Back to ${titleName(week.names)}`);
   };
 
-  document.querySelectorAll('.readrow').forEach(row => {
-    row.onclick = () => {
-      const k = row.dataset.readingRow;
-      if (k) toggleReading(k);
-    };
-  });
+  function updateReading(reading, patch, focusId, bulk = false) {
+    const before = readingChecks(state(item.id), reading);
+    const wasComplete = complete(state(item.id));
+    clearTimeout(undoTimer);
+    undo = null;
+    if (!setProgress(item.id, patch)) {
+      render();
+      document.getElementById(focusId)?.focus({ preventScroll: true });
+      announce('Progress could not be saved. Check browser storage.');
+      return;
+    }
+    if (['rashi', 'onkelos'].includes(reading)) setCommentaryView(item.id, reading);
+    const after = readingChecks(state(item.id), reading);
+    if (bulk) {
+      undo = { owner: user?.id || null, year, id: item.id, reading, before, after,
+        label: `${titleName(item.names)}, ${readingLabel(reading)} ${after.every(Boolean) ? 'marked complete.' : 'cleared.'}` };
+      undoTimer = setTimeout(() => {
+        undo = null;
+        const focused = document.activeElement?.id === 'undo-reading';
+        const status = document.querySelector('#undo-status');
+        if (status) status.hidden = true;
+        if (focused) document.getElementById(`reading-${reading}`)?.focus({ preventScroll: true });
+      }, 12000);
+    }
+    completedFeedback = !wasComplete && complete(state(item.id)) ? viewKey(item.id) : null;
+    bulkReading = bulk ? reading : null;
+    render();
+    bulkReading = null;
+    const control = document.getElementById(focusId);
+    control?.focus({ preventScroll: true });
+    if (readingCount(state(item.id), reading) > before.filter(Boolean).length) {
+      pop(control?.classList.contains('aliyah-choice') ? control : control?.querySelector('.rcheck'));
+      haptic(6);
+    }
+    if (completedFeedback) {
+      celebrate(document.querySelector('.parsha-meter'));
+      haptic([12, 50, 24]);
+    }
+    announce(`${readingLabel(reading)}, ${readingCount(state(item.id), reading)} of 7 aliyos. ${titleName(item.names)}${complete(state(item.id)) ? ' complete' : `, ${steps(state(item.id))} of 3 readings complete`}.`);
+  }
 
-  document.querySelectorAll('button[data-reading]').forEach(btn => {
-    btn.onclick = (e) => {
-      e.stopPropagation();
-      const k = btn.dataset.reading;
-      if (k) toggleReading(k);
-    };
+  document.querySelectorAll('[data-expand]').forEach(button => button.onclick = () => {
+    if (button.disabled) return;
+    const reading = button.dataset.expand;
+    const expanded = expandedReadings.get(viewKey(item.id));
+    if (expanded.has(reading)) expanded.delete(reading);
+    else expanded.add(reading);
+    render();
+    document.getElementById(`expand-${reading}`).focus({ preventScroll: true });
   });
+  document.querySelectorAll('button[data-reading]').forEach(button => button.onclick = () => {
+    if (button.disabled) return;
+    const reading = button.dataset.reading;
+    updateReading(reading, wholeReadingPatch(reading, !readingComplete(state(item.id), reading)), button.id, true);
+  });
+  document.querySelectorAll('[data-aliyah]').forEach(button => button.onclick = () => {
+    if (button.disabled) return;
+    const [reading, value] = button.dataset.aliyah.split(':');
+    const index = Number(value);
+    updateReading(reading, { [aliyahField(reading, index)]: !readingChecks(state(item.id), reading)[index] }, button.id);
+  });
+  document.querySelectorAll('[data-use-commentary]').forEach(button => button.onclick = () => {
+    const reading = button.dataset.useCommentary;
+    const current = commentaryView(item.id, state(item.id));
+    if (reading === current) return;
+    setCommentaryView(item.id, reading);
+    // Both paths keep their checks, so switching needs no confirmation.
+    data.commentary = reading;
+    save();
+    const expanded = expandedReadings.get(viewKey(item.id));
+    if (expanded.delete(current)) expanded.add(reading);
+    render();
+    button.focus({ preventScroll: true });
+    slideIn([document.querySelector('.commentary-reads')], reading === 'rashi' ? 1 : -1);
+    announce(`Using ${readingLabel(reading)}. Saved commentary progress preserved.`);
+  });
+  const undoButton = document.querySelector('#undo-reading');
+  if (undoButton) undoButton.onclick = () => {
+    const previous = undo;
+    if (!previous || previous.owner !== (user?.id || null)) return;
+    const key = `${previous.year}:${previous.id}`;
+    const current = readingChecks(data.progress[key], previous.reading);
+    const patch = {};
+    previous.before.forEach((checked, index) => {
+      if (checked !== previous.after[index] && current[index] === previous.after[index]) {
+        patch[aliyahField(previous.reading, index)] = checked;
+      }
+    });
+    try { data = session.reading(key, patch); }
+    catch { announce('Undo could not be saved. Check browser storage.'); return; }
+    clearTimeout(undoTimer);
+    undo = null;
+    completedFeedback = null;
+    render();
+    (document.getElementById(`reading-${previous.reading}`) || document.querySelector('#settings')).focus({ preventScroll: true });
+    announce(`${readingLabel(previous.reading)} bulk change undone.`);
+  };
 
   document.querySelector('#settings').onclick = settings;
   const account = document.querySelector('#account');
   if (account) account.onclick = authDialog;
+}
+
+function setCommentaryView(id, reading) {
+  const key = viewKey(id);
+  commentaryViews.set(key, reading);
+  try { sessionStorage.setItem(`commentary-view:${key}`, reading); } catch { /* Optional view preference. */ }
 }
 
 function avatarInitialInner() {
@@ -391,19 +566,45 @@ function renderWelcome() {
   };
 }
 
+// Fades out an inert copy, so the real dialog can close synchronously.
+function dialogExit() {
+  if (reducedMotion()) return;
+  const root = document.querySelector('#dialog-root');
+  const copy = root.cloneNode(true);
+  copy.removeAttribute('id');
+  copy.className = 'dialog-exit';
+  copy.setAttribute('aria-hidden', 'true');
+  copy.inert = true;
+  // Cloning does not carry over a select's current choice.
+  const selects = root.querySelectorAll('select');
+  copy.querySelectorAll('select').forEach((select, index) => { select.value = selects[index].value; });
+  copy.querySelectorAll('[id], [role]').forEach(element => { element.removeAttribute('id'); element.removeAttribute('role'); });
+  // Keep the copy's fields from being associated with their labels.
+  copy.querySelectorAll('label').forEach(label => {
+    const row = document.createElement('div');
+    row.className = label.className;
+    row.append(...label.childNodes);
+    label.replaceWith(row);
+  });
+  copy.querySelector('.dialog').classList.replace('dialog', 'dialog-leaving');
+  document.body.append(copy);
+  setTimeout(() => copy.remove(), 200);
+}
+
 let closeModal = () => {};
 function modal(html, label = 'Dialog') {
-  closeModal();
+  closeModal({ instant: true });
   const prev = document.activeElement;
   document.querySelector('#dialog-root').innerHTML = `<div class="scrim"></div><div class="dialog" role="dialog" aria-modal="true" aria-label="${label}"><button class="close" aria-label="Close">×</button>${html}</div>`;
   const box = document.querySelector('.dialog');
   const events = new AbortController();
   let closed = false;
-  const close = () => {
+  const close = ({ instant = false } = {}) => {
     if (closed) return;
     if (box.getAttribute('aria-busy') === 'true') return;
     closed = true;
     events.abort();
+    if (!instant) dialogExit();
     document.querySelector('#dialog-root').innerHTML = '';
     if (label === 'Settings') render();
     if (prev?.isConnected) prev.focus({ preventScroll: true });
@@ -573,8 +774,8 @@ function previewImport(imported, settingsIncluded) {
   const owner = user?.id || null;
   const summary = backupSummary(imported);
   modal(`<h2>${settingsIncluded ? 'Restore backup?' : 'Import guest progress?'}</h2>
-    <p class="dialog-note">${summary.parshiyos} ${summary.parshiyos === 1 ? 'parsha' : 'parshiyos'} with progress, ${summary.completed} completed. Cycles: ${summary.cycles.join(', ') || 'none'}.</p>
-    <p class="dialog-note">Checked readings will be added to ${user ? 'your signed-in account' : 'guest progress on this device'}. Existing checkmarks will stay.${settingsIncluded ? ' Calendar, theme, and commentary settings will be restored.' : ' Guest progress will also remain on this device.'}</p>
+    <p class="dialog-note">${summary.parshiyos} ${summary.parshiyos === 1 ? 'parsha' : 'parshiyos'} with progress, ${summary.completed} completed, ${summary.aliyos} aliyah ${summary.aliyos === 1 ? 'reading' : 'readings'} checked. Cycles: ${summary.cycles.join(', ') || 'none'}.</p>
+    <p class="dialog-note">Checked readings and aliyos will be added to ${user ? 'your signed-in account' : 'guest progress on this device'}. Existing checkmarks will stay.${settingsIncluded ? ' Calendar, theme, and commentary settings will be restored.' : ' Guest progress will also remain on this device.'}</p>
     <p class="dialog-note" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-import">Cancel</button><button class="primary" id="confirm-import">Confirm import</button></div>`, 'Import progress');
   document.querySelector('#cancel-import').focus();
@@ -599,7 +800,7 @@ function updateSyncStatus() {
 
 function confirmDeleteProgress() {
   modal(`<h2>Delete all progress?</h2>
-    <p class="dialog-note">This clears every reading checkmark from every cycle${user ? ' on this device and in your account' : ' on this device'}. Your settings and account stay. This cannot be undone.</p>
+    <p class="dialog-note">This clears every reading and aliyah checkmark from every cycle${user ? ' on this device and in your account' : ' on this device'}. Your settings and account stay. This cannot be undone.</p>
     <p class="dialog-note">You can export a copy from Settings before deleting.</p>
     <p class="dialog-note" id="delete-status" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-delete">Cancel</button><button class="danger-button" id="confirm-delete">Delete all progress</button></div>`, 'Delete all progress?');
@@ -607,6 +808,7 @@ function confirmDeleteProgress() {
   document.querySelector('#cancel-delete').onclick = settings;
   document.querySelector('#confirm-delete').onclick = () => runSettingsAction('Deleting progress…', async () => {
     await session.clear();
+    clearTimeout(undoTimer); undo = null; completedFeedback = null;
     ({ data, storageOK } = session.snapshot());
     document.querySelector('.dialog').removeAttribute('aria-busy');
     closeModal(); render(); settings();
@@ -621,6 +823,7 @@ session.subscribe((snapshot, { refresh, accountChanged }) => {
   if (user || previousUser) chooseGuest(false);
   applyTheme();
   if (accountChanged) {
+    clearTimeout(undoTimer); undo = null; completedFeedback = null;
     document.querySelector('.dialog')?.removeAttribute('aria-busy');
     closeModal();
     year = cycleYear(new Date(), data.israel); chosen = null; activeSefer = null;

@@ -1,6 +1,8 @@
 import { HDate, Sedra, months } from '@hebcal/core';
-export const complete = p => !!(p?.mikra1 && p?.mikra2 && (p?.onkelos || p?.rashi));
-export const steps = p => Number(!!p?.mikra1) + Number(!!p?.mikra2) + Number(!!(p?.onkelos || p?.rashi));
+import { readingComplete } from './readings.js';
+export const complete = p => steps(p) === 3;
+export const steps = p => Number(readingComplete(p, 'mikra1')) + Number(readingComplete(p, 'mikra2'))
+  + Number(readingComplete(p, 'onkelos') || readingComplete(p, 'rashi'));
 // Explicit pairs keep single names such as Lech-Lecha intact.
 export const DOUBLE_PARSHIYOS = [
  ['Vayakhel', 'Pekudei'],

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { schedule } from '../src/model.js';
+import { checkedReadings } from './fixtures.js';
 
 const rows = schedule(5787, false);
 const boundaries = [1, 13, 24, 34, 44, 55];
@@ -41,13 +42,13 @@ test('reading progress updates the list and survives a reload', async ({ page })
   await expect(page.locator('.cyccount')).toHaveText('1/12');
   await expect(page.locator('.parsharow[data-parsha="Bereshit"]')).toHaveClass(/done/);
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
-  await expect(page.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(3);
+  await expect(page.locator('[data-reading][aria-checked="true"]')).toHaveCount(3);
 
   await page.locator('[data-reading="onkelos"]').click();
   await expect(page.locator('.parsharow[data-parsha="Bereshit"]')).not.toHaveClass(/done/);
-  await expect(page.locator('.parsharow[data-parsha="Bereshit"] .parshastatus')).toHaveText('2/3');
+  await expect(page.locator('.parsharow[data-parsha="Bereshit"] .parshastatus')).toHaveText('2/3 readings');
   await expect(page.locator('.cyccount')).toHaveText('0/12');
-  await expect(page.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(2);
+  await expect(page.locator('[data-reading][aria-checked="true"]')).toHaveCount(2);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -80,85 +81,100 @@ test('each sefer shows its full schedule and all parshiyos remain reachable', as
 test('partial progress remains visible for the current and selected readings', async ({ page }) => {
   const weekly = page.locator('.parsharow[data-parsha="Noach"]');
   await page.locator('[data-reading="mikra1"]').click();
-  await expect(weekly.locator('.parshastatus')).toHaveText('1/3');
+  await expect(weekly.locator('.parshastatus')).toHaveText('1/3 readings');
   await expect(weekly.locator('.statusring')).toHaveClass(/partial/);
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('1 / 3');
   await expect(weekly.locator('.current-dot')).toHaveCount(1);
   await page.locator('[data-reading="mikra2"]').click();
-  await expect(weekly.locator('.parshastatus')).toHaveText('2/3');
+  await expect(weekly.locator('.parshastatus')).toHaveText('2/3 readings');
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
   const selected = page.locator('.parsharow[data-parsha="Bereshit"]');
+  await page.locator('#commentary-rashi').click();
   await page.locator('[data-reading="rashi"]').click();
-  await expect(selected.locator('.parshastatus')).toHaveText('1/3');
+  await expect(selected.locator('.parshastatus')).toHaveText('1/3 readings');
   // The summary continues to describe this week while editing another parsha.
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
-  await expect(selected).toHaveAccessibleName(/1 of 3 done, selected/);
-  await expect(weekly).toHaveAccessibleName(/2 of 3 done, current parsha/);
+  await expect(selected).toHaveAccessibleName(/1 of 3 done.*selected/);
+  await expect(weekly).toHaveAccessibleName(/2 of 3 done.*current parsha/);
   await expect(weekly).toHaveAttribute('aria-pressed', 'false');
   await page.reload();
-  await expect(selected.locator('.parshastatus')).toHaveText('1/3');
-  await expect(weekly.locator('.parshastatus')).toHaveText('2/3');
+  await expect(selected.locator('.parshastatus')).toHaveText('1/3 readings');
+  await expect(weekly.locator('.parshastatus')).toHaveText('2/3 readings');
   await expect(weekly).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('Rashi completion is stored and grays out Targum after reload', async ({ page }) => {
+test('Rashi completion is stored and stays the shown commentary after reload', async ({ page }) => {
+  await page.locator('#commentary-rashi').click();
   for (const reading of ['mikra1', 'mikra2', 'rashi']) {
     await page.locator(`[data-reading="${reading}"]`).click();
   }
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('shnaim-mikra-v1')));
-  expect(stored.progress['5787:Noach'].rashi).toBe(true);
-  expect(stored.progress['5787:Noach'].onkelos).toBeFalsy();
+  expect(stored.progress['5787:Noach']).toMatchObject(checkedReadings('rashi'));
+  expect(stored.progress['5787:Noach'].onkelos_1).toBeFalsy();
   await page.reload();
-  await expect(page.locator('[role="checkbox"][aria-checked="true"]')).toHaveCount(3);
+  await expect(page.locator('[data-reading][aria-checked="true"]')).toHaveCount(3);
   await expect(page.locator('.parsharow.current')).toHaveClass(/done/);
   await expect(page.locator('.parsharow.current .statusring.complete svg')).toHaveCount(1);
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('3 / 3');
   await expect(page.locator('[data-reading="rashi"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('[data-reading="onkelos"]')).toBeDisabled();
+  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-reading="onkelos"]')).toHaveCount(0);
 });
 
 test('commentary choices can be switched and remain specific to each week', async ({ page }) => {
   const rashi = page.locator('[data-reading="rashi"]');
   const targum = page.locator('[data-reading="onkelos"]');
-  await expect(rashi).toBeEnabled();
-  await expect(targum).toBeEnabled();
-  await rashi.click();
-  await expect(targum).toBeDisabled();
-  // Clicking the disabled option's label must not record the other choice.
-  await page.locator('[data-reading-row="onkelos"] .rlabel').dispatchEvent('click');
-  await expect(targum).toHaveAttribute('aria-checked', 'false');
-  await rashi.click();
-  await expect(targum).toBeEnabled();
+  await expect(targum).toHaveCount(1);
+  await expect(rashi).toHaveCount(0);
+  await page.locator('#commentary-rashi').click();
+  await expect(page.locator('#commentary-rashi')).toBeFocused();
+  await expect(rashi).toHaveCount(1);
+  await expect(targum).toHaveCount(0);
+  await page.locator('#commentary-onkelos').click();
   await targum.focus();
   await page.keyboard.press('Space');
   await expect(targum).toHaveAttribute('aria-checked', 'true');
-  await expect(rashi).toBeDisabled();
 
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
-  await expect(rashi).toBeEnabled();
-  await expect(targum).toBeEnabled();
+  await page.locator('#commentary-rashi').click();
   await rashi.click();
   await page.reload();
   await expect(targum).toHaveAttribute('aria-checked', 'true');
-  await expect(rashi).toBeDisabled();
+  await expect(rashi).toHaveCount(0);
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
   await expect(rashi).toHaveAttribute('aria-checked', 'true');
-  await expect(targum).toBeDisabled();
-  await rashi.click();
-  await expect(rashi).toBeEnabled();
-  await expect(targum).toBeEnabled();
+  await expect(targum).toHaveCount(0);
+});
+
+test('the last commentary chosen becomes the default for untouched parshiyos', async ({ page }) => {
+  await page.locator('#commentary-rashi').click();
+  await page.locator('.parsharow[data-parsha="Lech-Lecha"]').click();
+  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await page.locator('.parsharow[data-parsha="Vayera"]').click();
+  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('browsing another parsha offers a way back to this week', async ({ page }) => {
+  await expect(page.locator('#back-to-week')).toHaveCount(0);
+  await page.locator('.parsharow[data-parsha="Vayechi"]').click();
+  await expect(page.locator('.browsing')).toContainText('Shabbos of');
+  await page.locator('#back-to-week').click();
+  await expect(page.locator('h1')).toHaveText('Parshas Noach');
+  await expect(page.locator('#back-to-week')).toHaveCount(0);
+  await expect(page.locator('.parsharow.selected')).toBeFocused();
 });
 
 test('existing commentary records appear in their corresponding checkbox', async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem('shnaim-mikra-v1', JSON.stringify({
+  await page.evaluate(progress => localStorage.setItem('shnaim-mikra-v1', JSON.stringify({
     israel: false,
     commentary: 'rashi',
-    progress: { '5787:Noach': { mikra1: true, mikra2: true, onkelos: true } },
-  })));
+    progress,
+  })), { '5787:Noach': checkedReadings('mikra1', 'mikra2', 'onkelos') });
   await page.reload();
   await expect(page.locator('[data-reading="onkelos"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('[data-reading="rashi"]')).toBeDisabled();
+  await expect(page.locator('[data-reading="rashi"]')).toHaveCount(0);
   await expect(page.locator('.cyccount')).toHaveText('1/12');
 });
 
@@ -167,6 +183,7 @@ for (const width of [320, 360, 393, 440, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     for (let index = 0; index < 5; index++) {
       await page.locator(`[data-sefer-tab="${index}"]`).click();
+      await page.evaluate(() => Promise.allSettled(document.getAnimations().map(animation => animation.finished)));
       const layout = await page.evaluate(() => ({
         overflow: document.documentElement.scrollWidth > innerWidth,
         hebrewNames: document.querySelectorAll('.cycle [lang="he"]').length,

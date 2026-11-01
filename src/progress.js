@@ -1,29 +1,13 @@
-import { complete, schedule, DOUBLE_PARSHIYOS } from './model.js';
-
-export function splitDoubleProgress(progress = {}) {
-  const migrated = { ...progress };
-  const pairs = new Map(DOUBLE_PARSHIYOS.map(names => [names.join('-'), names]));
-  for (const [key, p] of Object.entries(progress)) {
-    const sep = key.indexOf(':');
-    const names = pairs.get(key.slice(sep + 1));
-    if (sep < 0 || !names) continue;
-    for (const name of names) {
-      const singleKey = `${key.slice(0, sep)}:${name}`;
-      // Once tracked individually, a parsha's own record takes precedence.
-      if (!Object.hasOwn(migrated, singleKey)) migrated[singleKey] = { ...p };
-    }
-    delete migrated[key];
-  }
-  return migrated;
-}
+import { complete, schedule } from './model.js';
+import { hasReadingProgress, readingCount, readingChecks } from './readings.js';
 
 export const peirushName = value => typeof value === 'string'
   ? value.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Rashi'
   : 'Rashi';
 
 export function progressText(data, name = id => id, now = new Date()) {
-  const entries = Object.entries(splitDoubleProgress(data.progress)).filter(([, p]) =>
-    p && (p.mikra1 || p.mikra2 || p.onkelos || p.rashi));
+  const entries = Object.entries(data.progress).filter(([, p]) =>
+    p && hasReadingProgress(p));
   const years = [...new Set(entries.map(([key]) => Number(key.split(':')[0])))].sort((a, b) => a - b);
   const lines = [
     'Shnayim Mikra — Reading Progress',
@@ -42,7 +26,11 @@ export function progressText(data, name = id => id, now = new Date()) {
     for (const [id, p] of cycle) {
       lines.push('', `${name(id)} — ${complete(p) ? 'Complete' : 'In progress'}`);
       for (const [key, label] of [['mikra1', 'Mikra I'], ['mikra2', 'Mikra II'], ['rashi', peirushName(data.peirushName)], ['onkelos', 'Targum (Onkelos)']]) {
-        lines.push(`  [${p[key] ? 'x' : ' '}] ${label}`);
+        const count = readingCount(p, key);
+        lines.push(`  [${count === 7 ? 'x' : ' '}] ${label} — ${count} of 7 aliyos`);
+        if (count > 0 && count < 7) readingChecks(p, key).forEach((checked, index) => {
+          lines.push(`    [${checked ? 'x' : ' '}] Aliyah ${index + 1}`);
+        });
       }
     }
   }
