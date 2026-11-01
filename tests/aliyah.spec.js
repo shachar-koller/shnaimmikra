@@ -36,24 +36,20 @@ test('out-of-order aliyos persist, show mixed progress, and keep keyboard focus'
   await expect(page.locator('#aliyah-mikra1-0')).toHaveAttribute('aria-checked', 'false');
 });
 
-test('bulk shortcuts undo to the exact partial pattern and recover a cleared reading', async ({ page }) => {
+test('the reading checkbox marks a partial reading complete, then clears it', async ({ page }) => {
   await page.locator('#expand-mikra1').click();
   await page.locator('#aliyah-mikra1-1').click();
   await page.locator('#aliyah-mikra1-5').click();
   await page.locator('#reading-mikra1').click();
   await expect(page.locator('#aliyos-mikra1 [aria-checked="true"]')).toHaveCount(7);
-  await page.locator('#undo-reading').click();
+  await expect(page.locator('#reading-mikra1')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#reading-mikra1')).toBeFocused();
-  await expect(page.locator('#reading-mikra1')).toHaveAttribute('aria-checked', 'mixed');
-  await expect(page.locator('#aliyos-mikra1 [aria-checked="true"]')).toHaveCount(2);
-  await expect(page.locator('#aliyah-mikra1-1')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#aliyah-mikra1-5')).toHaveAttribute('aria-checked', 'true');
-  await page.locator('#reading-mikra1').click();
   await page.locator('#reading-mikra1').click();
   await expect(page.locator('#reading-mikra1')).toHaveAttribute('aria-checked', 'false');
-  await page.locator('#undo-reading').click();
-  await expect(page.locator('#reading-mikra1')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('#aliyos-mikra1 [aria-checked="true"]')).toHaveCount(0);
   await expect(page.locator('#aliyos-mikra1')).toBeVisible();
+  // Nothing pops up over the page after a whole-reading change.
+  await expect(page.locator('#undo-status, #undo-reading')).toHaveCount(0);
 });
 
 test('commentary switching preserves both paths and only a full path completes the parsha', async ({ page }) => {
@@ -187,11 +183,26 @@ test('checklists start folded so a phone screen shows every reading at once', as
   await expect(page.locator('#expand-mikra2')).toBeFocused();
   const folded = await page.locator('#reading').evaluate(card => card.getBoundingClientRect().bottom);
   expect(folded).toBeLessThan(page.viewportSize().height);
-  // Unfolding everything still fits, because aliyos take one line rather than seven.
-  for (const reading of ['mikra1', 'mikra2', 'onkelos']) await page.locator(`#expand-${reading}`).click();
-  await expect(page.locator('#aliyah-onkelos-6')).toBeVisible();
-  const heights = await page.locator('#aliyos-mikra1').evaluate(panel => [...panel.querySelectorAll('button')].map(button => button.getBoundingClientRect().top));
-  expect(new Set(heights).size).toBe(1);
+  // Unfolded, each aliyah is its own named row of the checklist.
+  await page.locator('#expand-mikra1').click();
+  await expect(page.locator('#aliyah-mikra1-6')).toBeVisible();
+  await expect(page.locator('#aliyah-mikra1-6 .rlabel')).toHaveText('Aliyah 7');
+  await page.evaluate(() => Promise.allSettled(document.getAnimations().map(animation => animation.finished)));
+  const tops = await page.locator('#aliyos-mikra1').evaluate(panel => [...panel.querySelectorAll('button')].map(button => button.getBoundingClientRect().top));
+  expect(new Set(tops).size).toBe(7);
+  await expect(page.locator('.next-aliyah')).toHaveCount(0);
+  await page.locator('#aliyah-mikra1-0').click();
+  await expect(page.locator('.next-aliyah')).toHaveText('Next unchecked: Aliyah 2');
+});
+
+test('checking an aliyah row never pushes the page sideways on a narrow phone', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.locator('#expand-mikra1').click();
+  await page.locator('#aliyah-mikra1-2').click();
+  // Measured straight after the click, while the check's pop animation is running.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('#reading-mikra1').click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('folding and checking update elements in place so transitions can run', async ({ page }) => {
@@ -205,15 +216,6 @@ test('folding and checking update elements in place so transitions can run', asy
   await page.locator('#aliyah-mikra1-2').click();
   await expect(page.locator('#aliyah-mikra1-2')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#expand-mikra1 .reading-count')).toHaveText('1 of 7 aliyos');
-});
-
-test('undo still works after several in-place renders without acting twice', async ({ page }) => {
-  await page.locator('#reading-mikra1').click();
-  await page.locator('#reading-mikra2').click();
-  await page.locator('#undo-reading').click();
-  await expect(page.locator('#reading-mikra2')).toHaveAttribute('aria-checked', 'false');
-  await expect(page.locator('#reading-mikra1')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#undo-status')).toBeHidden();
 });
 
 test('finishing the third reading celebrates once, and not with reduced motion', async ({ page }) => {
@@ -242,19 +244,3 @@ test('closing a dialog leaves no focusable or named copy behind', async ({ page 
   await expect(page.locator('#settings')).toBeFocused();
   await expect(page.locator('.dialog-exit')).toHaveCount(0);
 });
-
-for (const layout of ['list', 'matrix']) {
-  test(`the ${layout} layout experiment saves the same progress and fits 320px`, async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto(`/?aliyos=${layout}`);
-    await expect(page.locator('#app')).toHaveAttribute('data-aliyah-layout', layout);
-    if (layout === 'list') await page.locator('#expand-mikra1').click();
-    else await expect(page.locator('#expand-mikra1')).toHaveCount(0);
-    await page.locator('#aliyah-mikra1-3').click();
-    await expect(page.locator('#reading-mikra1')).toHaveAttribute('aria-checked', 'mixed');
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('shnaim-mikra-v1')).progress['5787:Noach'])).toEqual({ mikra1_4: true });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const heights = await page.locator('#aliyos-mikra1 button').evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().height));
-    expect(heights.every(height => height >= 44)).toBe(true);
-  });
-}

@@ -49,17 +49,13 @@ applyTheme();
 
 const requestedCheckboxLayout = new URLSearchParams(location.search).get('checkboxes');
 document.querySelector('#app').dataset.checkboxLayout = requestedCheckboxLayout === 'left' ? 'left' : 'right';
-// Layout experiment: ?aliyos=chips (default), list, or matrix. Matrix has no folding.
-const requestedAliyahLayout = new URLSearchParams(location.search).get('aliyos');
-const aliyahLayout = ['list', 'matrix'].includes(requestedAliyahLayout) ? requestedAliyahLayout : 'chips';
-document.querySelector('#app').dataset.aliyahLayout = aliyahLayout;
 
 let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
 let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/weekly sefer
 const expandedReadings = new Map();
 const commentaryViews = new Map();
-let undo = null, undoTimer = null, completedFeedback = null, bulkReading = null;
+let completedFeedback = null, bulkReading = null;
 const viewKey = id => `${user?.id || 'guest'}:${year}:${id}`;
 const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Onkelos', rashi: peirushName(data.peirushName) }[reading]);
 function commentaryView(id, progress) {
@@ -125,16 +121,14 @@ function readingRow(reading, item, progress, expanded) {
   const label = escapeHtml(readingLabel(reading));
   const status = count === 7 ? 'Complete' : count ? `${count} of 7 aliyos` : 'Not started';
   const checked = count === 7 ? 'true' : count ? 'mixed' : 'false';
-  const matrix = aliyahLayout === 'matrix';
-  const open = matrix || expanded.has(reading);
+  const open = expanded.has(reading);
   const name = escapeHtml(titleName(item.names));
   const checks = readingChecks(progress, reading);
   const next = count ? checks.indexOf(false) : -1;
   const heading = `<span class="rlabel"><span class="reading-name">${label}</span><span class="reading-meta"><span class="beads" aria-hidden="true">${checks.map((on, index) => `<i class="${on ? 'on' : ''}" style="--i:${index}"></i>`).join('')}</span><span class="reading-count">${status}</span></span></span>`;
   return `<li class="reading-block${open ? ' open' : ''}${count === 7 ? ' complete' : ''}${bulkReading === reading ? ' bulk' : ''}" data-key="block-${reading}">
     <div class="readingstep" data-reading-row="${reading}">
-      ${matrix ? `<span class="expand-reading">${heading}</span>`
-        : `<button id="expand-${reading}" type="button" class="expand-reading" data-expand="${reading}" aria-expanded="${open}" aria-controls="aliyos-${reading}" aria-label="${open ? 'Hide' : 'Show'} ${label} aliyos, ${status}">${chevron}${heading}</button>`}
+      <button id="expand-${reading}" type="button" class="expand-reading" data-expand="${reading}" aria-expanded="${open}" aria-controls="aliyos-${reading}" aria-label="${open ? 'Hide' : 'Show'} ${label} aliyos, ${status}">${chevron}${heading}</button>
       <button id="reading-${reading}" type="button" class="reading-check" data-reading="${reading}" role="checkbox" aria-checked="${checked}" aria-label="${name}, ${label}, ${status}. ${count === 7 ? 'Clear' : 'Mark'} all seven aliyos">
         <span class="rcheck${count === 7 ? ' on' : ''}${count && count < 7 ? ' mixed' : ''}" aria-hidden="true">${tick}<i class="dash"></i></span>
       </button>
@@ -142,7 +136,7 @@ function readingRow(reading, item, progress, expanded) {
     <div id="aliyos-${reading}" class="aliyah-panel">
       <div class="aliyah-clip">
         <ol class="aliyah-list" aria-label="${label} aliyos">
-          ${checks.map((on, index) => `<li style="--i:${index}"><button id="aliyah-${reading}-${index}" type="button" class="readrow aliyah-choice${on ? ' on' : ''}${index === next ? ' next' : ''}" data-aliyah="${reading}:${index}" role="checkbox" aria-checked="${on}" aria-label="${name}, ${label}, Aliyah ${index + 1}"><span class="rlabel"><span class="aliyah-word">Aliyah </span>${index + 1}</span><span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${tick}</span></button></li>`).join('')}
+          ${checks.map((on, index) => `<li style="--i:${index}"><button id="aliyah-${reading}-${index}" type="button" class="readrow aliyah-choice${on ? ' on' : ''}" data-aliyah="${reading}:${index}" role="checkbox" aria-checked="${on}" aria-label="${name}, ${label}, Aliyah ${index + 1}"><span class="rlabel">Aliyah ${index + 1}</span><span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${tick}</span></button></li>`).join('')}
         </ol>
         ${next >= 0 ? `<p class="next-aliyah">Next unchecked: Aliyah ${next + 1}</p>` : ''}
       </div>
@@ -312,7 +306,6 @@ function render() {
       ${storageOK ? '' : '<footer><span class="warn">Progress could not be saved. Check browser storage.</span></footer>'}
     </main>
   </div>
-  <div id="undo-status" class="undo-status" role="status" ${undo && undo.owner === (user?.id || null) ? '' : 'hidden'}>${undo ? `<span class="undo-message">${escapeHtml(undo.label)}</span><button id="undo-reading" class="text-action">Undo</button>` : ''}</div>
   <div id="dialog-root"></div>
   <div class="sr-only" aria-live="polite" id="announcement"></div>`);
 
@@ -367,8 +360,6 @@ function wire(rows, item) {
   function updateReading(reading, patch, focusId, bulk = false) {
     const before = readingChecks(state(item.id), reading);
     const wasComplete = complete(state(item.id));
-    clearTimeout(undoTimer);
-    undo = null;
     if (!setProgress(item.id, patch)) {
       render();
       document.getElementById(focusId)?.focus({ preventScroll: true });
@@ -376,18 +367,6 @@ function wire(rows, item) {
       return;
     }
     if (['rashi', 'onkelos'].includes(reading)) setCommentaryView(item.id, reading);
-    const after = readingChecks(state(item.id), reading);
-    if (bulk) {
-      undo = { owner: user?.id || null, year, id: item.id, reading, before, after,
-        label: `${titleName(item.names)}, ${readingLabel(reading)} ${after.every(Boolean) ? 'marked complete.' : 'cleared.'}` };
-      undoTimer = setTimeout(() => {
-        undo = null;
-        const focused = document.activeElement?.id === 'undo-reading';
-        const status = document.querySelector('#undo-status');
-        if (status) status.hidden = true;
-        if (focused) document.getElementById(`reading-${reading}`)?.focus({ preventScroll: true });
-      }, 12000);
-    }
     completedFeedback = !wasComplete && complete(state(item.id)) ? viewKey(item.id) : null;
     bulkReading = bulk ? reading : null;
     render();
@@ -395,7 +374,7 @@ function wire(rows, item) {
     const control = document.getElementById(focusId);
     control?.focus({ preventScroll: true });
     if (readingCount(state(item.id), reading) > before.filter(Boolean).length) {
-      pop(control?.classList.contains('aliyah-choice') ? control : control?.querySelector('.rcheck'));
+      pop(control?.querySelector('.rcheck'));
       haptic(6);
     }
     if (completedFeedback) {
@@ -440,27 +419,6 @@ function wire(rows, item) {
     slideIn([document.querySelector('.commentary-reads')], reading === 'rashi' ? 1 : -1);
     announce(`Using ${readingLabel(reading)}. Saved commentary progress preserved.`);
   });
-  const undoButton = document.querySelector('#undo-reading');
-  if (undoButton) undoButton.onclick = () => {
-    const previous = undo;
-    if (!previous || previous.owner !== (user?.id || null)) return;
-    const key = `${previous.year}:${previous.id}`;
-    const current = readingChecks(data.progress[key], previous.reading);
-    const patch = {};
-    previous.before.forEach((checked, index) => {
-      if (checked !== previous.after[index] && current[index] === previous.after[index]) {
-        patch[aliyahField(previous.reading, index)] = checked;
-      }
-    });
-    try { data = session.reading(key, patch); }
-    catch { announce('Undo could not be saved. Check browser storage.'); return; }
-    clearTimeout(undoTimer);
-    undo = null;
-    completedFeedback = null;
-    render();
-    (document.getElementById(`reading-${previous.reading}`) || document.querySelector('#settings')).focus({ preventScroll: true });
-    announce(`${readingLabel(previous.reading)} bulk change undone.`);
-  };
 
   document.querySelector('#settings').onclick = settings;
   const account = document.querySelector('#account');
@@ -808,7 +766,7 @@ function confirmDeleteProgress() {
   document.querySelector('#cancel-delete').onclick = settings;
   document.querySelector('#confirm-delete').onclick = () => runSettingsAction('Deleting progress…', async () => {
     await session.clear();
-    clearTimeout(undoTimer); undo = null; completedFeedback = null;
+    completedFeedback = null;
     ({ data, storageOK } = session.snapshot());
     document.querySelector('.dialog').removeAttribute('aria-busy');
     closeModal(); render(); settings();
@@ -823,7 +781,7 @@ session.subscribe((snapshot, { refresh, accountChanged }) => {
   if (user || previousUser) chooseGuest(false);
   applyTheme();
   if (accountChanged) {
-    clearTimeout(undoTimer); undo = null; completedFeedback = null;
+    completedFeedback = null;
     document.querySelector('.dialog')?.removeAttribute('aria-busy');
     closeModal();
     year = cycleYear(new Date(), data.israel); chosen = null; activeSefer = null;

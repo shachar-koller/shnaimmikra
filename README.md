@@ -17,10 +17,10 @@ For Google sign-in and account sync, copy `.env.example` to `.env` and follow [S
 
 ## Aliyah tracking
 
-Each reading is folded by default. Tapping its row unfolds seven independently
-checkable aliyos; progress stays visible while folded. The checkbox on the row is
+Each reading is folded by default. Tapping its row unfolds a checklist of seven
+independently checkable aliyos; progress stays visible while folded. The checkbox on the row is
 separate: from empty or partial it marks all seven complete, and a completed one
-clears all seven. Bulk changes offer Undo for 12 seconds. Checking one aliyah does
+clears all seven. Checking one aliyah does
 not check earlier ones or close the checklist.
 
 The **Commentary** switch moves between Onkelos and your custom peirush without
@@ -37,9 +37,8 @@ Maftir is not an eighth checkbox. Verse ranges and reading text are not included
 Expansion choices stay in the current visit; the selected commentary view survives
 reloads in the current tab and is separate for each account, cycle, and parsha.
 
-Layout experiments are selected by URL and share the same saved progress:
-`?aliyos=chips` (default, seven numbers on one line), `?aliyos=list` (a vertical
-checklist), and `?aliyos=matrix` (no folding, one grid line per reading).
+Two alternative aliyah layouts that were tried and not chosen are kept in
+[archive/aliyah-layouts](archive/aliyah-layouts/README.md). The app doesn't use them.
 
 ## Progress and accounts
 

@@ -316,7 +316,7 @@ main { min-width: 0; }
 .beads { display: inline-flex; gap: 2px; }
 .beads i { width: 9px; height: 4px; border-radius: 2px; background: var(--track); transition: background-color var(--fast) ease; }
 .beads i.on { background: var(--green); }
-.bulk .beads i, .bulk .aliyah-choice { transition-delay: calc(var(--i) * 28ms); }
+.bulk .beads i, .bulk .aliyah-choice .rcheck, .bulk .aliyah-choice .tick path { transition-delay: calc(var(--i) * 28ms); }
 .reading-check { flex: 0 0 52px; display: grid; place-items: center; border-radius: 11px; }
 .rcheck { position: relative; display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1.5px solid var(--check-line); border-radius: 8px; background: var(--card); color: var(--on-accent); transition: background-color var(--fast) ease, border-color var(--fast) ease, scale var(--fast) ease; }
 .rcheck.on { background: var(--green); border-color: var(--green); }
@@ -328,67 +328,30 @@ main { min-width: 0; }
 .rcheck.mixed .dash { scale: 1 1; }
 @media (hover: hover) and (pointer: fine) {
   .reading-block:not(.complete):has(> .readingstep:hover) { background: var(--reading-hover); }
-  .aliyah-choice:not(.on):hover { background: var(--hover); }
+  .aliyah-choice:hover { background: var(--reading-hover); }
 }
 
 /* Height animates through a 0fr to 1fr track, so the content can size itself. */
 .aliyah-panel { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--med) var(--ease-out), visibility 0s linear var(--med); }
 .open > .aliyah-panel { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows var(--med) var(--ease-out), visibility 0s; }
 .aliyah-clip { min-height: 0; overflow: hidden; }
-.aliyah-list { list-style: none; margin: 0; padding: 2px 10px 10px; }
+.aliyah-list { list-style: none; margin: 0; }
 .open .aliyah-list > li { animation: rise-in var(--med) var(--ease-out) both; animation-delay: calc(var(--i) * 16ms); }
 .readrow { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; width: 100%; min-width: 0; min-height: 44px; gap: 8px; text-align: start; border-radius: 8px; user-select: none; }
 #app[data-checkbox-layout='left'] .readrow { grid-template-columns: 28px minmax(0, 1fr); }
 #app[data-checkbox-layout='left'] .readrow .rcheck { grid-column: 1; grid-row: 1; }
 #app[data-checkbox-layout='left'] .readrow .rlabel { grid-column: 2; grid-row: 1; }
 .readrow:focus-visible { outline-color: var(--green); }
-.aliyah-choice { transition: background-color var(--fast) ease, border-color var(--fast) ease, color var(--fast) ease, scale var(--fast) ease; }
-.next-aliyah { display: none; color: var(--muted); font-size: 12px; padding: 0 10px 10px 36px; }
+.aliyah-choice { transition: background-color var(--fast) ease; }
+.next-aliyah { color: var(--muted); font-size: 12px; padding: 4px 10px 10px 34px; }
 
-/* Layout experiment A (default): seven number chips on one line. */
-#app[data-aliyah-layout='chips'] .aliyah-list,
-#app[data-aliyah-layout='matrix'] .aliyah-list { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-#app[data-aliyah-layout='chips'] .aliyah-choice,
-#app[data-aliyah-layout='matrix'] .aliyah-choice { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; padding: 0; background: var(--card); border: 1px solid var(--reading-line); border-radius: 10px; }
-#app[data-aliyah-layout='chips'] .aliyah-choice.next,
-#app[data-aliyah-layout='matrix'] .aliyah-choice.next { border-color: var(--green); box-shadow: inset 0 0 0 .5px var(--green); }
-#app[data-aliyah-layout='chips'] .aliyah-choice.on,
-#app[data-aliyah-layout='matrix'] .aliyah-choice.on { background: var(--green); border-color: var(--green); color: var(--on-accent); }
-#app[data-aliyah-layout='chips'] .aliyah-word,
-#app[data-aliyah-layout='matrix'] .aliyah-word { display: none; }
-#app[data-aliyah-layout='chips'] .aliyah-choice .rlabel,
-#app[data-aliyah-layout='matrix'] .aliyah-choice .rlabel { grid-column: 1; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
-#app[data-aliyah-layout='chips'] .aliyah-choice .rcheck,
-#app[data-aliyah-layout='matrix'] .aliyah-choice .rcheck { position: absolute; top: 3px; right: 3px; grid-column: auto; grid-row: auto; width: 10px; height: 10px; border: 0; background: none; color: currentColor; }
-#app[data-aliyah-layout='chips'] .aliyah-choice svg,
-#app[data-aliyah-layout='matrix'] .aliyah-choice svg { width: 10px; height: 10px; }
-
-/* Layout experiment B: a conventional vertical checklist. */
-#app[data-aliyah-layout='list'] .aliyah-list { padding: 0 6px 4px 34px; }
-#app[data-aliyah-layout='list'] .aliyah-list li + li { border-top: 1px solid var(--reading-line); }
-#app[data-aliyah-layout='list'] .aliyah-choice { padding: 5px 10px 5px 0; }
-#app[data-aliyah-layout='list'] .aliyah-choice .rlabel { font-size: 14px; font-weight: 400; }
-#app[data-aliyah-layout='list'] .aliyah-choice .rcheck { width: 24px; height: 24px; border-radius: 6px; justify-self: end; }
-#app[data-aliyah-layout='list'][data-checkbox-layout='left'] .aliyah-choice .rcheck { justify-self: start; }
-#app[data-aliyah-layout='list'] .next-aliyah { display: block; }
-
-/* Layout experiment C: nothing folds. Each reading is one line of the grid. */
-#app[data-aliyah-layout='matrix'] .reads { gap: 4px; }
-#app[data-aliyah-layout='matrix'] .reading-block { display: grid; grid-template-columns: 62px minmax(0, 1fr) 36px; align-items: center; }
-#app[data-aliyah-layout='matrix'] .readingstep { display: contents; }
-#app[data-aliyah-layout='matrix'] .expand-reading { grid-column: 1; grid-row: 1; padding: 0 0 0 7px; }
-#app[data-aliyah-layout='matrix'] .expand-reading .rlabel { width: 100%; }
-#app[data-aliyah-layout='matrix'] .reading-name { font-size: 13px; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#app[data-aliyah-layout='matrix'] .reading-meta { display: none; }
-#app[data-aliyah-layout='matrix'] .aliyah-panel { grid-column: 2; grid-row: 1; }
-#app[data-aliyah-layout='matrix'] .reading-check { grid-column: 3; grid-row: 1; align-self: stretch; }
-#app[data-aliyah-layout='matrix'] .rcheck { width: 24px; height: 24px; border-radius: 7px; }
-#app[data-aliyah-layout='matrix'] .aliyah-list { padding: 3px 0; gap: 2px; }
-#app[data-aliyah-layout='matrix'] .aliyah-list > li { animation: none; }
-#app[data-aliyah-layout='matrix'] .aliyah-choice { border-radius: 7px; }
-#app[data-aliyah-layout='matrix'] .aliyah-choice .rlabel { font-size: 13px; }
-#app[data-aliyah-layout='matrix'] .aliyah-choice .rcheck { top: 2px; right: 2px; width: 8px; height: 8px; }
-#app[data-aliyah-layout='matrix'] .aliyah-choice svg { width: 8px; height: 8px; }
+/* Aliyos unfold into a vertical checklist, indented under the reading's name. */
+.aliyah-list { padding: 0 6px 4px 26px; }
+.aliyah-list li + li { border-top: 1px solid var(--reading-line); }
+.aliyah-choice { padding: 5px 10px 5px 8px; }
+.aliyah-choice .rlabel { font-size: 14px; font-weight: 400; }
+.aliyah-choice .rcheck { width: 24px; height: 24px; border-radius: 6px; justify-self: end; }
+#app[data-checkbox-layout='left'] .aliyah-choice .rcheck { justify-self: start; }
 
 .reading-card-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .reading-card-heading h2 { font-size: 16px; font-weight: 650; }
@@ -423,13 +386,9 @@ main { min-width: 0; }
 .burst-1 { width: 7px; height: 7px; border-radius: 50%; background: var(--check-line); }
 .burst-2 { background: var(--ink); opacity: .75; }
 
-.undo-status { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); z-index: 35; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: max-content; max-width: calc(100% - 24px); padding: 6px 16px; background: var(--card); color: var(--ink); border: 1px solid var(--check-line); border-radius: 14px; box-shadow: 0 8px 28px rgba(0, 0, 0, .18); font-size: 13px; animation: toast-in var(--med) var(--ease-out); }
-.undo-status .text-action { flex-shrink: 0; }
-.undo-message { min-width: 0; overflow-wrap: anywhere; }
-.undo-status[hidden] { display: none; }
 
 /* Pressing anything gives immediate feedback on touch screens. */
-.aliyah-choice:active, .reading-check:active .rcheck { scale: .92; }
+.aliyah-choice:active .rcheck, .reading-check:active .rcheck { scale: .92; }
 .iconbtn, .avatarbtn, .signinbtn, .sefertab, .parsharow, .switch-option, .primary, .secondary, .settings-action, .theme-option { transition: background-color var(--fast) ease, color var(--fast) ease, scale var(--fast) ease; }
 .iconbtn:active, .avatarbtn:active, .signinbtn:active, .primary:active, .secondary:active { scale: .96; }
 .parsharow:active { scale: .99; }
@@ -438,7 +397,6 @@ main { min-width: 0; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
 @keyframes check-draw { from { stroke-dashoffset: 30; } to { stroke-dashoffset: 0; } }
-@keyframes toast-in { from { opacity: 0; translate: 0 14px; } }
 @keyframes card-sweep { from { background-position: 130% 0; } to { background-position: -30% 0; } }
 @keyframes card-glow { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 40%, transparent); } 100% { box-shadow: 0 0 0 16px transparent; } }
 @keyframes ring-in { from { scale: .4; opacity: 0; } 60% { scale: 1.15; } to { scale: 1; opacity: 1; } }

@@ -5,8 +5,10 @@ design rationale. See [README.md](README.md) for usage and the required cloud
 database migration.
 
 Later UI changes supersede parts of this proposal: every reading now starts folded,
-aliyos default to one line of number chips rather than seven rows, and an inline
-Commentary switch replaces the Change commentary dialog and the disabled row.
+and an inline Commentary switch replaces the Change commentary dialog and the
+disabled row. The seven-row checklist was chosen over two compact alternatives,
+which are kept in [archive/aliyah-layouts](archive/aliyah-layouts/README.md). The
+Undo popup was removed, because changing a checkmark back only takes a tap.
 
 ## Goal and scope
 

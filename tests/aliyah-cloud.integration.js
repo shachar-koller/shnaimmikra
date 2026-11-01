@@ -43,11 +43,11 @@ try {
   let remote = (await a.pull(account.id)).progress[key];
   assert.equal(readingCount(remote, 'mikra1'), 5);
   assert.equal(readingCount(remote, 'mikra2'), 1);
-  // Undo restores only the edited field; the second device's work stays checked.
+  // Rewriting one field leaves the second device's work checked.
   await a.writeProgress(account.id, key, { mikra1_4: true });
   remote = (await b.pull(account.id)).progress[key];
   assert.equal(readingCount(remote, 'mikra1'), 6);
-  assert.equal(remote.mikra1_5, false, 'Undo preserves the other device’s edit to the same reading');
+  assert.equal(remote.mikra1_5, false, 'A write preserves the other device’s edit to the same reading');
   assert.equal(readingCount(remote, 'mikra2'), 1);
   await b.writeProgress(account.id, key, wholeReadingPatch('mikra2', false));
   remote = (await a.pull(account.id)).progress[key];
