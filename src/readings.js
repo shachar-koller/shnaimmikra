@@ -1,5 +1,6 @@
 export const READINGS = ['mikra1', 'mikra2', 'onkelos', 'rashi'];
 export const ALIYAH_COUNT = 7;
+export const ALIYAH_NAMES = ['Kohen', 'Levi', 'Shlishi', "Rivi'i", 'Chamishi', 'Shishi', "Shevi'i"];
 export const aliyahField = (reading, index) => `${reading}_${index + 1}`;
 export const ALIYAH_FIELDS = READINGS.flatMap(reading =>
   Array.from({ length: ALIYAH_COUNT }, (_, index) => aliyahField(reading, index)));

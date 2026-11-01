@@ -24,7 +24,7 @@ export function parseBackup(text) {
     const match = /^(\d{4}):(.+)$/.exec(key);
     if (!match || Number(match[1]) < 5000 || Number(match[1]) > 9998 || !parshiyos.has(match[2]) || !object(value)
       || Object.entries(value).some(([field, checked]) => !ALIYAH_FIELDS.includes(field) || typeof checked !== 'boolean')) {
-      throw new Error('The backup contains an invalid reading record.');
+      throw new Error('The backup contains an invalid progress record.');
     }
   }
   return normalizeData(data);

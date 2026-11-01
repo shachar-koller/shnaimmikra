@@ -46,7 +46,7 @@ test('reading progress updates the list and survives a reload', async ({ page })
 
   await page.locator('[data-reading="onkelos"]').click();
   await expect(page.locator('.parsharow[data-parsha="Bereshit"]')).not.toHaveClass(/done/);
-  await expect(page.locator('.parsharow[data-parsha="Bereshit"] .parshastatus')).toHaveText('2/3 readings');
+  await expect(page.locator('.parsharow[data-parsha="Bereshit"] .parshastatus')).toHaveText('2/3');
   await expect(page.locator('.cyccount')).toHaveText('0/12');
   await expect(page.locator('[data-reading][aria-checked="true"]')).toHaveCount(2);
   expect(runtimeErrors).toEqual([]);
@@ -81,26 +81,26 @@ test('each sefer shows its full schedule and all parshiyos remain reachable', as
 test('partial progress remains visible for the current and selected readings', async ({ page }) => {
   const weekly = page.locator('.parsharow[data-parsha="Noach"]');
   await page.locator('[data-reading="mikra1"]').click();
-  await expect(weekly.locator('.parshastatus')).toHaveText('1/3 readings');
+  await expect(weekly.locator('.parshastatus')).toHaveText('1/3');
   await expect(weekly.locator('.statusring')).toHaveClass(/partial/);
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('1 / 3');
   await expect(weekly.locator('.current-dot')).toHaveCount(1);
   await page.locator('[data-reading="mikra2"]').click();
-  await expect(weekly.locator('.parshastatus')).toHaveText('2/3 readings');
+  await expect(weekly.locator('.parshastatus')).toHaveText('2/3');
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
   const selected = page.locator('.parsharow[data-parsha="Bereshit"]');
   await page.locator('#commentary-rashi').click();
   await page.locator('[data-reading="rashi"]').click();
-  await expect(selected.locator('.parshastatus')).toHaveText('1/3 readings');
+  await expect(selected.locator('.parshastatus')).toHaveText('1/3');
   // The summary continues to describe this week while editing another parsha.
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
   await expect(selected).toHaveAccessibleName(/1 of 3 done.*selected/);
   await expect(weekly).toHaveAccessibleName(/2 of 3 done.*current parsha/);
   await expect(weekly).toHaveAttribute('aria-pressed', 'false');
   await page.reload();
-  await expect(selected.locator('.parshastatus')).toHaveText('1/3 readings');
-  await expect(weekly.locator('.parshastatus')).toHaveText('2/3 readings');
+  await expect(selected.locator('.parshastatus')).toHaveText('1/3');
+  await expect(weekly.locator('.parshastatus')).toHaveText('2/3');
   await expect(weekly).toHaveAttribute('aria-pressed', 'true');
 });
 

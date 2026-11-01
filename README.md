@@ -1,6 +1,6 @@
 # Shnayim Mikra
 
-A weekly reading tracker built with vanilla JavaScript, Vite, Hebcal, and Supabase. Google sign-in is the recommended way to use the app: progress saves to your account and follows you across devices. Guest access is available as a secondary option.
+A weekly Shnayim Mikra tracker built with vanilla JavaScript, Vite, Hebcal, and Supabase. Google sign-in is the recommended way to use the app: progress saves to your account and follows you across devices. Guest access is available as a secondary option.
 
 ## Run locally
 
@@ -17,7 +17,7 @@ For Google sign-in and account sync, copy `.env.example` to `.env` and follow [S
 
 ## Aliyah tracking
 
-Each reading is folded by default. Tapping its row unfolds a checklist of seven
+Mikra I, Mikra II, and the commentary are each folded by default. Tapping its row unfolds a checklist of seven
 independently checkable aliyos; progress stays visible while folded. The checkbox on the row is
 separate: from empty or partial it marks all seven complete, and a completed one
 clears all seven. Checking one aliyah does
@@ -25,15 +25,14 @@ not check earlier ones or close the checklist.
 
 The **Commentary** switch moves between Onkelos and your custom peirush without
 erasing either path, and the last one chosen becomes the default for parshiyos
-without progress. All seven aliyos in one commentary are required for the third
-reading; partial paths are not combined. Progress rings use the further-completed
-commentary path. Weekly totals count completed readings, and yearly/sefer totals
+without progress. All seven aliyos in one commentary are required for it to count; partial paths are not combined. Progress rings use the further-completed
+commentary path. Weekly totals count completed sections, and yearly/sefer totals
 count completed parshiyos. Partial aliyah progress appears below the weekly total
 and in the parsha list.
 
 Double weeks keep separate progress and seven study aliyos for each constituent
 parsha, using standalone divisions rather than the combined Shabbos leyning.
-Maftir is not an eighth checkbox. Verse ranges and reading text are not included.
+Maftir is not an eighth checkbox. Verse ranges and text are not included.
 Expansion choices stay in the current visit; the selected commentary view survives
 reloads in the current tab and is separate for each account, cycle, and parsha.
 
@@ -46,8 +45,8 @@ Two alternative aliyah layouts that were tried and not chosen are kept in
 - Guest progress stays in the `shnaim-mikra-v1` browser-storage record.
 - Each account has its own `shnaim-mikra-v2:account:<user-id>` record. Signing out leaves account progress separate from guest progress. Account caches and pending changes stay associated with their original account.
 - Signing in never automatically uploads guest or another account's cache. Use **Settings → Import guest progress** to preview and explicitly add guest checkmarks to the current account.
-- Reading changes and their pending sync operations are saved together before sending. Unchecking is an explicit `false` change, not the absence of a record.
-- Only edited aliyah fields are sent. Changes to different readings or different aliyos on different devices are preserved. If two devices edit the same field, the last write received by the server wins. A genuinely pending offline edit can therefore supersede a newer online edit when it reconnects; old cached checkmarks by themselves are never uploaded. Whole-reading shortcuts explicitly edit all seven cells.
+- Progress changes and their pending sync operations are saved together before sending. Unchecking is an explicit `false` change, not the absence of a record.
+- Only edited aliyah fields are sent. Changes to different aliyos on different devices are preserved. If two devices edit the same field, the last write received by the server wins. A genuinely pending offline edit can therefore supersede a newer online edit when it reconnects; old cached checkmarks by themselves are never uploaded. Whole-section shortcuts explicitly edit all seven cells.
 - Failed operations survive reloads. Sync retries with backoff, on reconnect, on returning to the app, and every minute while visible. Settings shows the sync state and offers **Sync now**.
 - Reset requests are also durable: once confirmed and saved locally, a failed cloud deletion retries when connected. Stale caches on other devices are replaced on their next refresh. Explicit edits made after a reset request remain pending.
 - Browser storage and Web Locks coordinate tabs on the same origin where available. This is account separation, not encryption against someone with access to your browser profile.
@@ -58,7 +57,7 @@ Calendar dates use the browser's local date. Israel and Diaspora have separate s
 
 Settings offers the readable text export and a versioned JSON backup. Version 2 JSON includes complete and partial aliyah progress for all locally known cycles, calendar, theme, and the custom commentary label. Only the current aliyah format is supported. Exports exclude authentication tokens, account identifiers, and sync internals.
 
-**Restore JSON backup** validates the file and shows a preview before importing. Restore adds checked readings without clearing existing ones and restores the backup's settings. Guest import only adds readings. Both work offline; account imports sync later. If an export cannot reach the cloud, it exports cached progress and pending edits and says so. An empty cache on a new device cannot include cloud-only history while offline.
+**Restore JSON backup** validates the file and shows a preview before importing. Restore adds checkmarks without clearing existing ones and restores the backup's settings. Guest import only adds checkmarks. Both work offline; account imports sync later. If an export cannot reach the cloud, it exports cached progress and pending edits and says so. An empty cache on a new device cannot include cloud-only history while offline.
 
 ## Source layout
 
@@ -67,7 +66,7 @@ Settings offers the readable text export and a versioned JSON backup. Version 2 
 - `src/morph.js`: patches the DOM in place on each render, so CSS transitions can run. Assign listeners with `.onclick`; `addEventListener` would stack up across renders.
 - `src/motion.js`: one-shot animations, including the 3/3 celebration. All of them respect reduced motion.
 - `src/model.js`, `src/names.js`, `src/progress.js`: calendar, display names, completion, and text export.
-- `src/readings.js`: seven-aliyah reading helpers, completion, and sparse progress patches.
+- `src/readings.js`: seven-aliyah helpers, completion, and sparse progress patches.
 - `src/storage.js`: guest/account storage and durable pending operations.
 - `src/sync.js`: Supabase adapter and serialized retrying synchronization.
 - `src/session.js`: authentication, account switching, and refresh lifecycle.

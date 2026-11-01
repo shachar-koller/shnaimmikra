@@ -141,7 +141,7 @@ test('partial aliyos survive JSON restore and exports describe the actual checks
   await page.locator('#aliyah-mikra1-0').click();
   await page.locator('#settings').click();
   await page.locator('#backup-file').setInputFiles(path);
-  await expect(page.getByRole('dialog')).toContainText('1 aliyah reading checked');
+  await expect(page.getByRole('dialog')).toContainText('1 aliyah checked');
   await page.locator('#confirm-import').click();
   await expect(page.locator('#settings-status')).toContainText('imported');
   await page.keyboard.press('Escape');
@@ -186,13 +186,10 @@ test('checklists start folded so a phone screen shows every reading at once', as
   // Unfolded, each aliyah is its own named row of the checklist.
   await page.locator('#expand-mikra1').click();
   await expect(page.locator('#aliyah-mikra1-6')).toBeVisible();
-  await expect(page.locator('#aliyah-mikra1-6 .rlabel')).toHaveText('Aliyah 7');
+  await expect(page.locator('#aliyah-mikra1-6 .rlabel')).toHaveText("Shevi'i");
   await page.evaluate(() => Promise.allSettled(document.getAnimations().map(animation => animation.finished)));
   const tops = await page.locator('#aliyos-mikra1').evaluate(panel => [...panel.querySelectorAll('button')].map(button => button.getBoundingClientRect().top));
   expect(new Set(tops).size).toBe(7);
-  await expect(page.locator('.next-aliyah')).toHaveCount(0);
-  await page.locator('#aliyah-mikra1-0').click();
-  await expect(page.locator('.next-aliyah')).toHaveText('Next unchecked: Aliyah 2');
 });
 
 test('checking an aliyah row never pushes the page sideways on a narrow phone', async ({ page }) => {

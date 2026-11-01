@@ -1,5 +1,5 @@
 import { complete, schedule } from './model.js';
-import { hasReadingProgress, readingCount, readingChecks } from './readings.js';
+import { ALIYAH_NAMES, hasReadingProgress, readingCount, readingChecks } from './readings.js';
 
 export const peirushName = value => typeof value === 'string'
   ? value.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Rashi'
@@ -10,13 +10,13 @@ export function progressText(data, name = id => id, now = new Date()) {
     p && hasReadingProgress(p));
   const years = [...new Set(entries.map(([key]) => Number(key.split(':')[0])))].sort((a, b) => a - b);
   const lines = [
-    'Shnayim Mikra — Reading Progress',
+    'Shnayim Mikra — Progress',
     `Exported: ${now.toISOString()}`,
-    `Reading calendar: ${data.israel ? 'Israel' : 'Diaspora'}`,
+    `Parsha calendar: ${data.israel ? 'Israel' : 'Diaspora'}`,
     `Parshiyos with progress: ${entries.length}`,
     `Completed: ${entries.filter(([, p]) => complete(p)).length}`,
   ];
-  if (!entries.length) lines.push('', 'No reading progress recorded yet.');
+  if (!entries.length) lines.push('', 'No progress recorded yet.');
   for (const year of years) {
     const order = new Map(schedule(year, data.israel).map((row, i) => [row.id, i]));
     const cycle = entries.filter(([key]) => key.startsWith(`${year}:`))
@@ -29,7 +29,7 @@ export function progressText(data, name = id => id, now = new Date()) {
         const count = readingCount(p, key);
         lines.push(`  [${count === 7 ? 'x' : ' '}] ${label} — ${count} of 7 aliyos`);
         if (count > 0 && count < 7) readingChecks(p, key).forEach((checked, index) => {
-          lines.push(`    [${checked ? 'x' : ' '}] Aliyah ${index + 1}`);
+          lines.push(`    [${checked ? 'x' : ' '}] ${ALIYAH_NAMES[index]}`);
         });
       }
     }

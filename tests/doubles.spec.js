@@ -16,7 +16,7 @@ test('one half of a double week can be completed while the other stays unfinishe
   await expect(parsha(page, 'Metzora')).toHaveAttribute('aria-current', 'true');
   await expect(page.locator('.cyccount')).toHaveText('0/10');
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('0 / 6');
-  await expect(page.locator('.weeklyprogress .bigsub')).toHaveText('Tazria – Metzora readings');
+  await expect(page.locator('.weeklyprogress .bigsub')).toHaveText('Tazria – Metzora');
 
   for (const reading of ['mikra1', 'mikra2', 'onkelos']) {
     await page.locator(`[data-reading="${reading}"]`).click();
@@ -36,7 +36,7 @@ test('one half of a double week can be completed while the other stays unfinishe
   await page.reload();
   await expect(parsha(page, 'Tazria')).toHaveClass(/done/);
   await expect(parsha(page, 'Metzora')).not.toHaveClass(/done/);
-  await expect(parsha(page, 'Metzora').locator('.parshastatus')).toHaveText('1/3 readings');
+  await expect(parsha(page, 'Metzora').locator('.parshastatus')).toHaveText('1/3');
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('4 / 6');
 
   await page.clock.setFixedTime(new Date('2026-04-19T12:00:00Z'));
@@ -44,7 +44,7 @@ test('one half of a double week can be completed while the other stays unfinishe
   await expect(page.locator('h1')).toHaveText('Parshas Acharei Mos');
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('0 / 6');
   await expect(parsha(page, 'Tazria')).toHaveClass(/done/);
-  await expect(parsha(page, 'Metzora').locator('.parshastatus')).toHaveText('1/3 readings');
+  await expect(parsha(page, 'Metzora').locator('.parshastatus')).toHaveText('1/3');
 });
 
 test('export includes each half of a double week independently', async ({ page }) => {

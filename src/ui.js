@@ -13,7 +13,7 @@ import { themes } from './storage.js';
 import { createBackup, parseBackup, backupSummary, MAX_BACKUP_BYTES } from './backup.js';
 import { SEFARIM, seferOf, fixName, titleName, heroName, hebrewName } from './names.js';
 import { peirushName, progressText } from './progress.js';
-import { readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
+import { ALIYAH_NAMES, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
 import { morph } from './morph.js';
 import { slideIn, pop, haptic, celebrate, reducedMotion } from './motion.js';
 
@@ -125,7 +125,6 @@ function readingRow(reading, item, progress, expanded) {
   const open = expanded.has(reading);
   const name = escapeHtml(titleName(item.names));
   const checks = readingChecks(progress, reading);
-  const next = count ? checks.indexOf(false) : -1;
   const heading = `<span class="rlabel"><span class="reading-name">${label}</span><span class="reading-meta"><span class="beads" aria-hidden="true">${checks.map((on, index) => `<i class="${on ? 'on' : ''}" style="--i:${index}"></i>`).join('')}</span><span class="reading-count">${status}</span></span></span>`;
   return `<li class="reading-block${open ? ' open' : ''}${count === 7 ? ' complete' : ''}${bulkReading === reading ? ' bulk' : ''}" data-key="block-${reading}">
     <div class="readingstep" data-reading-row="${reading}">
@@ -137,9 +136,8 @@ function readingRow(reading, item, progress, expanded) {
     <div id="aliyos-${reading}" class="aliyah-panel">
       <div class="aliyah-clip">
         <ol class="aliyah-list" aria-label="${label} aliyos">
-          ${checks.map((on, index) => `<li style="--i:${index}"><button id="aliyah-${reading}-${index}" type="button" class="readrow aliyah-choice${on ? ' on' : ''}" data-aliyah="${reading}:${index}" role="checkbox" aria-checked="${on}" aria-label="${name}, ${label}, Aliyah ${index + 1}"><span class="rlabel">Aliyah ${index + 1}</span><span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${tick}</span></button></li>`).join('')}
+          ${checks.map((on, index) => `<li style="--i:${index}"><button id="aliyah-${reading}-${index}" type="button" class="readrow aliyah-choice${on ? ' on' : ''}" data-aliyah="${reading}:${index}" role="checkbox" aria-checked="${on}" aria-label="${name}, ${label}, ${ALIYAH_NAMES[index]}"><span class="rlabel">${ALIYAH_NAMES[index]}</span><span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${tick}</span></button></li>`).join('')}
         </ol>
-        ${next >= 0 ? `<p class="next-aliyah">Next unchecked: Aliyah ${next + 1}</p>` : ''}
       </div>
     </div>
   </li>`;
@@ -148,7 +146,7 @@ function readingRow(reading, item, progress, expanded) {
 // One bar per reading, so progress stays visible while every checklist is folded.
 function parshaMeter(progress, commentary) {
   const readings = ['mikra1', 'mikra2', commentary];
-  return `<div class="parsha-meter" role="img" aria-label="${steps(progress)} of 3 readings complete">${readings.map(reading =>
+  return `<div class="parsha-meter" role="img" aria-label="${steps(progress)} of 3 complete">${readings.map(reading =>
     `<span><i style="width:${Math.round((readingCount(progress, reading) / 7) * 100)}%"></i></span>`).join('')}</div>`;
 }
 
@@ -204,7 +202,7 @@ function render() {
   const previousCounts = counters.map(selector => document.querySelector(selector)?.textContent);
 
   morph(document.querySelector('#app'), `
-  <a class="skip" href="#reading">Skip to reading</a>
+  <a class="skip" href="#reading">Skip to progress</a>
   <div class="page">
     <header class="topbar">
       <span class="brand">Shnayim Mikra</span>
@@ -222,7 +220,7 @@ function render() {
 
       <div class="cards">
         <section class="card${celebrating ? ' celebrate' : ''}" id="reading" aria-label="Shnayim Mikra for ${titleName(item.names)}">
-          <div class="reading-card-heading"><h2>Reading progress</h2><span>${steps(p)} of 3 readings</span></div>
+          <div class="reading-card-heading"><h2>Progress</h2><span>${steps(p)} of 3</span></div>
           ${parshaMeter(p, commentary)}
           ${isDoubleWeek ? '<p class="aliyah-note">Aliyos follow each parsha separately.</p>' : ''}
           <ol class="reads">
@@ -239,16 +237,16 @@ function render() {
           <ol class="reads commentary-reads" aria-label="Commentary">
             ${readingRow(commentary, item, p, expanded)}
           </ol>
-          ${readingCount(p, otherCommentary) ? `<p class="saved-commentary">${escapeHtml(readingLabel(otherCommentary))}: ${readingCount(p, otherCommentary)} of 7 aliyos saved. Either commentary finishes the third reading once all seven are checked; they don't combine.</p>` : ''}
-          <div class="completion-wrap${celebrating ? ' show' : ''}"><p class="completion-feedback" role="status">${celebrating ? `${check}<span>Yasher koach! Parsha complete. All three readings finished.</span>` : ''}</p></div>
+          ${readingCount(p, otherCommentary) ? `<p class="saved-commentary">${escapeHtml(readingLabel(otherCommentary))}: ${readingCount(p, otherCommentary)} of 7 aliyos saved. Either commentary counts once all seven are checked; they don't combine.</p>` : ''}
+          <div class="completion-wrap${celebrating ? ' show' : ''}"><p class="completion-feedback" role="status">${celebrating ? `${check}<span>Yasher koach! Parsha complete.</span>` : ''}</p></div>
         </section>
 
         <div class="sidecol">
           <section class="card yearly" aria-label="Yearly progress">
             ${inThisCycle ? `<div class="weeklyprogress" aria-label="This week's progress">
               <div class="progressheading"><h2 class="kicker">This week</h2><p class="progressvalue">${weeklySteps}<span> / ${weeklyTotal}</span></p></div>
-              <div class="weeksegments" style="--weekly-steps:${weeklyTotal}" role="img" aria-label="${weeklySteps} of ${weeklyTotal} readings completed for ${titleName(weeklyNames)}">${Array.from({ length: weeklyTotal }, (_, i) => `<span class="${weeklySteps > i ? 'filled' : ''}"></span>`).join('')}</div>
-              <p class="bigsub">${titleName(weeklyNames)} readings</p>
+              <div class="weeksegments" style="--weekly-steps:${weeklyTotal}" role="img" aria-label="${weeklySteps} of ${weeklyTotal} completed for ${titleName(weeklyNames)}">${Array.from({ length: weeklyTotal }, (_, i) => `<span class="${weeklySteps > i ? 'filled' : ''}"></span>`).join('')}</div>
+              <p class="bigsub">${titleName(weeklyNames)}</p>
               ${weeklyRows.map(row => {
                 const detail = readingDetail(state(row.id));
                 return detail ? `<p class="weekly-detail">${weeklyRows.length > 1 ? `${titleName(row.names)}: ` : ''}${escapeHtml(detail)}</p>` : '';
@@ -301,7 +299,7 @@ function render() {
               <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${escapeHtml(st)}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
                 <span class="parshanum" aria-hidden="true">${i + 1}</span>
                 <span class="parshaen">${titleName(r.names)}</span>
-                <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? numSteps ? `${numSteps}/3 readings` : 'In progress' : isCur ? 'Current' : ''}</span>
+                <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? numSteps ? `${numSteps}/3` : 'In progress' : isCur ? 'Current' : ''}</span>
                 <span class="statusring ${isDone ? 'complete' : isPartial ? 'partial' : 'empty'}" style="--progress:${fraction * 100}%" aria-hidden="true">${isDone ? check : ''}</span>
               </button>
             </li>`;
@@ -388,7 +386,7 @@ function wire(rows, item) {
       celebrate(document.querySelector('.parsha-meter'));
       haptic([12, 50, 24]);
     }
-    announce(`${readingLabel(reading)}, ${readingCount(state(item.id), reading)} of 7 aliyos. ${titleName(item.names)}${complete(state(item.id)) ? ' complete' : `, ${steps(state(item.id))} of 3 readings complete`}.`);
+    announce(`${readingLabel(reading)}, ${readingCount(state(item.id), reading)} of 7 aliyos. ${titleName(item.names)}${complete(state(item.id)) ? ' complete' : `, ${steps(state(item.id))} of 3 complete`}.`);
   }
 
   document.querySelectorAll('[data-expand]').forEach(button => button.onclick = () => {
@@ -460,7 +458,7 @@ function authDialog() {
     return;
   }
   modal(`<h2>Keep your progress with you</h2>
-    <p class="dialog-note">Sign in with Google to save your reading progress and pick up on any device.</p>
+    <p class="dialog-note">Sign in with Google to save your progress and pick up on any device.</p>
     ${googleSignInMarkup()}`, 'Sign in');
   wireGoogleSignIn(document.querySelector('.dialog'));
 }
@@ -602,12 +600,12 @@ function settings() {
     </div>
     </div>
     </section>
-    <section class="settings-section" aria-label="Reading">
+    <section class="settings-section" aria-label="Learning">
     <div class="settings-group">
     <label class="setting-row">Peirush
       <input id="peirush-name" type="text" maxlength="80" placeholder="Rashi" autocomplete="off" dir="auto">
     </label>
-    <label class="setting-row">Reading calendar
+    <label class="setting-row">Parsha calendar
       <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
     </label>
     <label class="setting-row">Cycle
@@ -739,8 +737,8 @@ function previewImport(imported, settingsIncluded) {
   const owner = user?.id || null;
   const summary = backupSummary(imported);
   modal(`<h2>${settingsIncluded ? 'Restore backup?' : 'Import guest progress?'}</h2>
-    <p class="dialog-note">${summary.parshiyos} ${summary.parshiyos === 1 ? 'parsha' : 'parshiyos'} with progress, ${summary.completed} completed, ${summary.aliyos} aliyah ${summary.aliyos === 1 ? 'reading' : 'readings'} checked. Cycles: ${summary.cycles.join(', ') || 'none'}.</p>
-    <p class="dialog-note">Checked readings and aliyos will be added to ${user ? 'your signed-in account' : 'guest progress on this device'}. Existing checkmarks will stay.${settingsIncluded ? ' Calendar, theme, and commentary settings will be restored.' : ' Guest progress will also remain on this device.'}</p>
+    <p class="dialog-note">${summary.parshiyos} ${summary.parshiyos === 1 ? 'parsha' : 'parshiyos'} with progress, ${summary.completed} completed, ${summary.aliyos} ${summary.aliyos === 1 ? 'aliyah' : 'aliyos'} checked. Cycles: ${summary.cycles.join(', ') || 'none'}.</p>
+    <p class="dialog-note">Checked aliyos will be added to ${user ? 'your signed-in account' : 'guest progress on this device'}. Existing checkmarks will stay.${settingsIncluded ? ' Calendar, theme, and commentary settings will be restored.' : ' Guest progress will also remain on this device.'}</p>
     <p class="dialog-note" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-import">Cancel</button><button class="primary" id="confirm-import">Confirm import</button></div>`, 'Import progress');
   document.querySelector('#cancel-import').focus();
@@ -765,7 +763,7 @@ function updateSyncStatus() {
 
 function confirmDeleteProgress() {
   modal(`<h2>Delete all progress?</h2>
-    <p class="dialog-note">This clears every reading and aliyah checkmark from every cycle${user ? ' on this device and in your account' : ' on this device'}. Your settings and account stay. This cannot be undone.</p>
+    <p class="dialog-note">This clears every checkmark from every cycle${user ? ' on this device and in your account' : ' on this device'}. Your settings and account stay. This cannot be undone.</p>
     <p class="dialog-note">You can export a copy from Settings before deleting.</p>
     <p class="dialog-note" id="delete-status" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-delete">Cancel</button><button class="danger-button" id="confirm-delete">Delete all progress</button></div>`, 'Delete all progress?');

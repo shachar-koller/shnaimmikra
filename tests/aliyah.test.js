@@ -101,10 +101,10 @@ test('additive import and backups preserve partial checks and custom labels', ()
   assert.equal(readingCount(repo.read(null).data.progress[key], 'mikra1'), 2);
   const text = progressText(repo.read(null).data);
   assert.match(text, /Mikra I — 2 of 7 aliyos/);
-  assert.match(text, /\[x\] Aliyah 7/);
+  assert.match(text, /\[x\] Shevi'i/);
   const invalid = JSON.parse(backup);
   invalid.data.progress[key] = { mikra1_8: true };
-  assert.throws(() => parseBackup(JSON.stringify(invalid)), /invalid reading/);
+  assert.throws(() => parseBackup(JSON.stringify(invalid)), /invalid progress/);
 });
 
 test('reset retains only later pending aliyos, and guest import does not copy another account', () => {

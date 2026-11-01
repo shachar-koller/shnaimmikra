@@ -343,7 +343,6 @@ main { min-width: 0; }
 #app[data-checkbox-layout='left'] .readrow .rlabel { grid-column: 2; grid-row: 1; }
 .readrow:focus-visible { outline-color: var(--green); }
 .aliyah-choice { transition: background-color var(--fast) ease; }
-.next-aliyah { color: var(--muted); font-size: 12px; padding: 4px 10px 10px 34px; }
 
 /* Aliyos unfold into a vertical checklist, indented under the reading's name. */
 .aliyah-list { padding: 0 6px 4px 26px; }
