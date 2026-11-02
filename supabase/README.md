@@ -27,6 +27,10 @@ explicitly choose to keep progress in their browser.
 6. Run `supabase/migrations/20261102120000_account_settings.sql` before deploying
    the account-wide settings app. The new app asks for these columns, so syncing
    fails without them. Older apps are unaffected by this migration.
+7. Run `supabase/migrations/20261102043621_default_reader_mode.sql` before deploying
+   the Chumash opening mode setting. It adds the nullable `default_reader_mode`
+   profile column; existing accounts keep the last-used behavior until they choose
+   a mode. Older apps are unaffected.
 
 ## 2. Wire the app
 

@@ -7,7 +7,7 @@ import { createBackup, parseBackup } from '../src/backup.js';
 import { fixName, titleName, heroName, sefarimFor } from '../src/names.js';
 import { reminderCalendar } from '../src/reminders.js';
 
-const settings = { followDevice: true, lightTheme: 'parchment', darkTheme: 'midnight', textSize: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, reminderDays: [1, 4], reminderTime: '18:30' };
+const settings = { followDevice: true, lightTheme: 'parchment', darkTheme: 'midnight', textSize: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, defaultReaderMode: 'cards', reminderDays: [1, 4], reminderTime: '18:30' };
 function repository() {
   const memory = new Map();
   return createRepository({ getItem: key => memory.get(key), setItem: (key, value) => memory.set(key, value) });
@@ -76,16 +76,17 @@ test('choices already on a device fill settings the account has never saved', ()
 
 test('invalid account values fall back to defaults instead of breaking the app', () => {
   const repo = repository();
-  repo.acceptRemote('account', { progress: {}, profile: { israel: false, commentary: 'onkelos', theme: 'light', glass: 900, naming: 'klingon' } });
+  repo.acceptRemote('account', { progress: {}, profile: { israel: false, commentary: 'onkelos', theme: 'light', glass: 900, naming: 'klingon', defaultReaderMode: 'unknown' } });
   const { data } = repo.read('account');
   assert.equal(data.theme, 'grayscale');
   assert.equal(preferences(data).glass, 50);
   assert.equal(preferences(data).naming, 'ashkenazi');
+  assert.equal(preferences(data).defaultReaderMode, 'last-used');
 });
 
 test('the cloud adapter maps every setting to its own column', async () => {
   const calls = [];
-  const row = { israel: true, commentary: 'rashi', theme: 'midnight', peirush_name: 'Ramban', follow_device: true, light_theme: 'forest', dark_theme: 'midnight', text_size: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, reminder_days: [1, 4], reminder_time: '18:30' };
+  const row = { israel: true, commentary: 'rashi', theme: 'midnight', peirush_name: 'Ramban', follow_device: true, light_theme: 'forest', dark_theme: 'midnight', text_size: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, default_reader_mode: 'cards', reminder_days: [1, 4], reminder_time: '18:30' };
   const query = result => {
     const chain = { select: columns => { calls.push(columns); return chain; }, eq: () => chain, order: () => chain, range: async () => ({ data: [], error: null }), maybeSingle: async () => result };
     return chain;
@@ -114,11 +115,12 @@ test('two devices share settings through sync', async () => {
   const engineA = createSyncEngine({ repository: a, cloud, userId: 'alice' });
   const engineB = createSyncEngine({ repository: b, cloud, userId: 'alice' });
   try {
-    a.settings('alice', { theme: 'midnight', glass: 35 });
+    a.settings('alice', { theme: 'midnight', glass: 35, defaultReaderMode: 'classic' });
     await engineA.sync();
     await engineB.sync();
     assert.equal(b.read('alice').data.theme, 'midnight');
     assert.equal(b.read('alice').data.glass, 35);
+    assert.equal(b.read('alice').data.defaultReaderMode, 'classic');
     b.settings('alice', { theme: 'forest' });
     await engineB.sync();
     await engineA.sync();
@@ -132,10 +134,11 @@ test('old saves retain defaults and malformed optional backup preferences are re
   const old = emptyData();
   assert.equal(preferences(old).textSize, 'standard');
   assert.equal(preferences(old).confetti, true);
+  assert.equal(preferences(old).defaultReaderMode, 'last-used');
   assert.equal(resolvedTheme({ ...old, theme: 'forest-dark' }, false), 'forest-dark');
   assert.equal(resolvedTheme({ ...old, ...settings }, false), 'parchment');
   assert.equal(resolvedTheme({ ...old, ...settings }, true), 'midnight');
-  for (const patch of [{ followDevice: 'true' }, { lightTheme: 'midnight' }, { darkTheme: 'forest' }, { naming: 'unknown' }, { textSize: 30 }, { glass: 101 }, { glass: 1.5 }, { glass: '60' }, { confetti: null }, { vibration: 1 }, { reminderDays: [7] }, { reminderDays: [1, 1] }, { reminderTime: '25:00' }]) {
+  for (const patch of [{ followDevice: 'true' }, { lightTheme: 'midnight' }, { darkTheme: 'forest' }, { naming: 'unknown' }, { defaultReaderMode: 'unknown' }, { textSize: 30 }, { glass: 101 }, { glass: 1.5 }, { glass: '60' }, { confetti: null }, { vibration: 1 }, { reminderDays: [7] }, { reminderDays: [1, 1] }, { reminderTime: '25:00' }]) {
     assert.equal(validPreferences(patch), false);
     const backup = JSON.parse(createBackup(old));
     Object.assign(backup.data, patch);

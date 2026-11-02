@@ -1,8 +1,11 @@
+import { READER_MODES } from './reader-model.js';
+
 export const LIGHT_THEMES = ['grayscale', 'forest', 'parchment'];
 export const DARK_THEMES = ['dark-grayscale', 'forest-dark', 'midnight'];
 export const PREFERENCE_DEFAULTS = {
   followDevice: false, lightTheme: 'grayscale', darkTheme: 'dark-grayscale',
   textSize: 'standard', glass: 50, naming: 'ashkenazi', confetti: true, vibration: true,
+  defaultReaderMode: 'last-used',
   reminderDays: [], reminderTime: '19:00',
 };
 export const PREFERENCE_KEYS = Object.keys(PREFERENCE_DEFAULTS);
@@ -13,6 +16,7 @@ const validators = {
   textSize: value => ['standard', 'larger'].includes(value),
   glass: value => Number.isInteger(value) && value >= 0 && value <= 100,
   naming: value => ['ashkenazi', 'sephardi', 'hebrew'].includes(value),
+  defaultReaderMode: value => ['last-used', ...READER_MODES].includes(value),
   confetti: value => typeof value === 'boolean',
   vibration: value => typeof value === 'boolean',
   reminderDays: value => Array.isArray(value) && value.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && new Set(value).size === value.length,

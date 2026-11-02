@@ -46,6 +46,8 @@ test.describe('the three modes', () => {
     await expect(groups.nth(0).locator('.pasuk-text').nth(0)).toHaveAttribute('dir', 'rtl');
     await expect(groups.nth(1).locator('.pasuk-ref')).toHaveText('Bereishis 1:2');
     await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
+    await expect(page.getByRole('progressbar', { name: 'Reading position in this aliyah' })).toHaveAttribute('value', '1');
+    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '4');
     await expect(page.locator('.flow')).not.toContainText(torahWord('1:5'));
     await expect(page.locator('.reader-end #reader-continue')).toBeVisible();
   });
@@ -131,8 +133,12 @@ test.describe('keeping the place', () => {
     await scrollToVerse(page, '2:1', 'targum');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
     await expect.poll(() => savedPosition(page)).toEqual({ aliyah: 1, ref: '2:1', part: 'targum', end: false });
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
+    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '5');
+    await expect(page.locator('#reader-progress')).toHaveAttribute('aria-valuetext', 'Aliyah 2 · Pasuk 3 of 5');
 
     await mode(page, 'cards');
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 2:1');
     await expect(page.locator('.pasuk [data-part="first"] .pasuk-text')).toContainText(torahWord('2:1'));
     await expect(page.locator('.pasuk [data-part="targum"]')).toBeInViewport();
@@ -144,6 +150,7 @@ test.describe('keeping the place', () => {
 
     await mode(page, 'classic');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
     await expect(page.locator('[data-verse="2:1"]').first()).toBeInViewport();
 
     // Classic has one copy of the pasuk, and the part survives the trip through it.
@@ -180,6 +187,8 @@ test.describe('keeping the place', () => {
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 2:1');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
     await expect(page.locator('#reader-aliyah')).toHaveValue('1');
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
+    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '5');
   });
 
   test('a reload of a flow bookmark scrolls to it, and leaving the reader means a fresh launch opens the tracker', async ({ page }) => {

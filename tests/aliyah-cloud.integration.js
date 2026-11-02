@@ -60,7 +60,7 @@ try {
   await a.clear(account.id);
   assert.deepEqual((await a.pull(account.id)).progress, {});
   // Every setting round-trips through its own column, and writes stay sparse.
-  const settings = { israel: true, commentary: 'rashi', theme: 'midnight', peirushName: 'Ramban', followDevice: true, lightTheme: 'forest', darkTheme: 'midnight', textSize: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, reminderDays: [1, 4], reminderTime: '18:30' };
+  const settings = { israel: true, commentary: 'rashi', theme: 'midnight', peirushName: 'Ramban', followDevice: true, lightTheme: 'forest', darkTheme: 'midnight', textSize: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, defaultReaderMode: 'cards', reminderDays: [1, 4], reminderTime: '18:30' };
   await a.writeProfile(account.id, settings);
   assert.deepEqual((await b.pull(account.id)).profile, settings);
   await b.writeProfile(account.id, { theme: 'parchment' });

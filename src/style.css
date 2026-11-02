@@ -977,23 +977,47 @@ footer .warn { color: var(--warning); }
 .reader-mode { min-height: 36px; min-width: 58px; padding: 4px 8px; border-radius: 7px; color: var(--soft-ink); font-size: 0.8125rem; font-weight: 500; transition: background-color var(--fast) ease, color var(--fast) ease; }
 .reader-mode[aria-pressed='true'] { background: var(--green); color: var(--on-accent); }
 .reader-location { color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reader-progress { appearance: none; display: block; flex: 0 0 100%; width: 100%; height: 4px; border: 0; border-radius: 999px; overflow: hidden; background: var(--track); color: var(--barfill); }
+.reader-progress::-webkit-progress-bar { background: var(--track); border-radius: inherit; }
+.reader-progress::-webkit-progress-value { background: var(--barfill); border-radius: inherit; }
+.reader-progress::-moz-progress-bar { background: var(--barfill); border-radius: inherit; }
 .reader-state { margin-top: 16px; padding: 28px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: center; color: var(--soft-ink); font-size: 0.9375rem; }
 .reader-state .reader-continue { margin-inline: auto; margin-top: 14px; max-width: 240px; }
 .reader-body { margin-top: 10px; }
-.pasuk-ref { color: var(--muted); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.pasuk-ref [lang='he'] { font-size: 0.9375rem; }
-.pasuk-part { padding-top: 12px; }
-.pasuk-part + .pasuk-part { margin-top: 10px; border-top: 1px solid var(--line); }
-.pasuk-label { display: block; color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
+.pasuk-ref, .peek-pasuk-ref { color: var(--muted); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pasuk-ref [lang='he'], .peek-pasuk-ref [lang='he'] { font-size: 0.9375rem; }
+.pasuk-part, .peek-pasuk-part { padding-top: 12px; }
+.pasuk-part + .pasuk-part, .peek-pasuk-part + .peek-pasuk-part { margin-top: 10px; border-top: 1px solid var(--line); }
+.pasuk-label, .peek-pasuk-label { display: block; color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
 /* Cantillation sits above and below the line, so the line height is what keeps it clear. */
-.pasuk-text, .classic-text { font-family: var(--reader-font); font-size: var(--reader-size); line-height: 2; color: var(--ink); overflow-wrap: break-word; }
-.pasuk-text { margin-top: 2px; text-align: start; }
-.pasuk-missing { margin-top: 4px; color: var(--warning); font-size: 0.875rem; font-style: italic; }
+.pasuk-text, .peek-pasuk-text, .classic-text { font-family: var(--reader-font); font-size: var(--reader-size); line-height: 2; color: var(--ink); overflow-wrap: break-word; }
+.pasuk-text, .peek-pasuk-text { margin-top: 2px; text-align: start; }
+.pasuk-missing, .peek-pasuk-missing { margin-top: 4px; color: var(--warning); font-size: 0.875rem; font-style: italic; }
 .tx-big { font-size: 1.35em; }
 .tx-small { font-size: .8em; }
 .tx-bold { font-weight: 700; }
 .tx-ketiv, .tx-note { color: var(--muted); font-size: .72em; }
-.reader-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); touch-action: pan-y pinch-zoom; }
+/* Throws leave the viewport without widening the page or hiding vertical scrolling. */
+body:has(.reader-card-deck) { overflow-x: clip; }
+.reader-card-deck { position: relative; isolation: isolate; padding-bottom: 14px; }
+.reader-card-deck::before, .reader-card-deck::after {
+  content: ''; position: absolute; inset: 0 0 14px; z-index: -1;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  pointer-events: none;
+}
+.reader-card-deck::before { transform: translateY(14px) scale(.94); background: color-mix(in srgb, var(--card) 75%, var(--tilebg)); }
+.reader-card-deck::after { transform: translateY(7px) scale(.97); }
+.reader-card-peek {
+  position: absolute; inset: 0 0 14px; overflow: hidden; padding: 16px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  transform: translateY(7px) scale(.97); pointer-events: none; user-select: none;
+}
+.card-peek-end { font-size: 1.0625rem; font-weight: 650; }
+.reader-card {
+  position: relative; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); touch-action: pan-y pinch-zoom; transform-origin: 50% 80%;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ink) 7%, transparent);
+}
 .reader-card .reader-end { margin: 0; padding: 0; border: 0; background: none; }
 .card-nav {
   position: sticky;
@@ -1008,7 +1032,7 @@ footer .warn { color: var(--warning); }
 }
 .card-step { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 46px; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-size: 0.875rem; font-weight: 600; transition: background-color var(--fast) ease, scale var(--fast) ease; }
 .card-step:not(:disabled):active { scale: .98; }
-.pasuk { padding-block: 4px; }
+.pasuk, .peek-pasuk { padding-block: 4px; }
 /* The gap between pesukim is deliberately stronger than the one between readings. */
 .flow .pasuk + .pasuk { margin-top: 28px; padding-top: 22px; border-top: 2px solid var(--track); }
 .classic-text { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: start; }

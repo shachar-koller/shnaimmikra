@@ -10,6 +10,8 @@ The Chumash tab shows the selected parsha one aliyah at a time, in three views o
 
 Your place is kept per parsha, as a pasuk rather than a scroll offset, so it survives switching views, switching tabs and reloading. A parsha you have not opened starts at its first pasuk, whatever the tracker shows. The view and your places are saved in this browser, separately for guests and each account. They don't sync between devices.
 
+In **Settings → Chumash opening mode**, choose **Cards**, **Flow**, or **Classic** to use whenever you open the Chumash tab or reload it. **Last used** (the default) remembers your most recent view, starting with Flow on first use. You can still switch views while reading without changing this setting or losing your place. The opening preference syncs with your account and is included in backups; guests keep it in this browser.
+
 ### Marking progress
 
 Reading never marks anything. Scrolling, swiping and reaching the end of an aliyah leave the tracker alone.

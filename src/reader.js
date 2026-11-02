@@ -7,9 +7,10 @@ import { ALIYAH_COUNT, ALIYAH_NAMES, aliyahField } from './readings.js';
 import { createTextLoader } from './chumash-text.js';
 import {
   READER_MODES, SHNAYIM_MIKRA_READINGS, aliyahCompletionPatch, createReaderStore, isMarked, mikraPatch,
-  pasukLocation, resolvePosition, startPosition, stepPasuk, swipeDirection,
+  pasukLocation, resolvePosition, startPosition, stepPasuk,
 } from './reader-model.js';
 import { celebrate, haptic, pop, slideIn } from './motion.js';
+import { createCardSwipe } from './reader-swipe.js';
 
 const MODE_LABELS = { cards: 'Cards', flow: 'Flow', classic: 'Classic' };
 const SAVE_FAILED = 'Progress could not be saved. Check browser storage.';
@@ -32,10 +33,19 @@ export function createReader(app) {
 
   let location = null;      // { key, owner, year, id, position }
   let mode = null;
+  let opening = true;
   let text = { status: 'loading' }; // status: loading | ready | error
   let loadToken = 0, pendingScroll = false, dirty = false, saveTimer = null;
   let ownScroll = null, pageHeight = 0, frame = null, width = innerWidth;
   let saveNote = '', retrying = false, fontRequested = false;
+  const cardSwipe = createCardSwipe({
+    canStep: direction => ready() && stepPasuk(parsha(), location.position, direction) !== location.position,
+    onSwipe: direction => stepCard(direction, { focusControls: false }),
+    onDirection: direction => {
+      const peek = document.querySelector('.reader-card-peek');
+      if (peek) peek.innerHTML = cardPeek(direction);
+    },
+  });
 
   const ready = () => text.status === 'ready';
   const progress = () => app.progress(location.id);
@@ -89,9 +99,16 @@ export function createReader(app) {
   function sync(item) {
     const owner = app.owner(), year = app.year();
     const key = `${owner || 'guest'}:${year}:${item.id}`;
+    if (opening || location?.owner !== owner || !mode) {
+      const preferred = preferences(app.data()).defaultReaderMode;
+      mode = preferred === 'last-used' ? store.mode(owner) : preferred;
+      if (preferred !== 'last-used') store.saveMode(owner, mode);
+      opening = false;
+      pendingScroll = true;
+    }
     if (location?.key === key) return;
+    cardSwipe.cancel();
     flush();
-    if (location?.owner !== owner || !mode) mode = store.mode(owner);
     location = { key, owner, year, id: item.id, position: store.position(owner, year, item.id) };
     saveNote = ''; retrying = false;
     pendingScroll = true;
@@ -111,21 +128,23 @@ export function createReader(app) {
       : `${sefer} ${verse.chapter}:${verse.verse}`;
   }
 
-  function pasukPart(part, label, verse, parts, lang, missing) {
-    return `<div class="pasuk-part" data-part="${part}" data-ref="${verse.ref}">
-      <span class="pasuk-label">${label}</span>
-      ${parts ? `<p class="pasuk-text" lang="${lang}" dir="rtl">${inline(parts)}</p>` : `<p class="pasuk-missing">${missing}</p>`}
+  function pasukPart(part, label, verse, parts, lang, missing, preview = false) {
+    const css = preview ? 'peek-pasuk' : 'pasuk';
+    return `<div class="${css}-part"${preview ? '' : ` data-part="${part}" data-ref="${verse.ref}"`}>
+      <span class="${css}-label">${label}</span>
+      ${parts ? `<p class="${css}-text" lang="${lang}" dir="rtl">${inline(parts)}</p>` : `<p class="${css}-missing">${missing}</p>`}
     </div>`;
   }
 
   // Torah, then Onkelos, then Torah again: the order itself is the practice.
-  function pasukGroup(verse) {
+  function pasukGroup(verse, preview = false) {
     const noTorah = 'This pasuk’s text is not available.';
-    return `<article class="pasuk" data-key="pasuk-${verse.ref}" aria-label="${esc(`Pasuk ${verse.chapter}:${verse.verse}`)}">
-      <p class="pasuk-ref">${pasukReference(verse)}</p>
-      ${pasukPart('first', 'Mikra I', verse, verse.torah, 'he', noTorah)}
-      ${pasukPart('targum', 'Targum Onkelos', verse, verse.onkelos, 'arc', 'Targum Onkelos is not available for this pasuk.')}
-      ${pasukPart('second', 'Mikra II', verse, verse.torah, 'he', noTorah)}
+    const css = preview ? 'peek-pasuk' : 'pasuk';
+    return `<article class="${css}"${preview ? '' : ` data-key="pasuk-${verse.ref}"`} aria-label="${esc(`Pasuk ${verse.chapter}:${verse.verse}`)}">
+      <p class="${css}-ref">${pasukReference(verse)}</p>
+      ${pasukPart('first', 'Mikra I', verse, verse.torah, 'he', noTorah, preview)}
+      ${pasukPart('targum', 'Targum Onkelos', verse, verse.onkelos, 'arc', 'Targum Onkelos is not available for this pasuk.', preview)}
+      ${pasukPart('second', 'Mikra II', verse, verse.torah, 'he', noTorah, preview)}
     </article>`;
   }
 
@@ -192,11 +211,21 @@ export function createReader(app) {
     </section>`;
   }
 
+  function cardPeek(direction) {
+    const next = stepPasuk(parsha(), location.position, direction);
+    if (next === location.position) return '';
+    if (next.end) return `<p class="card-peek-end">End of ${aliyahName(next.aliyah)}</p>`;
+    return pasukGroup(parsha().aliyot[next.aliyah].verses.find(verse => verse.ref === next.ref), true);
+  }
+
   function cardsView(verses) {
     const { position } = location;
     const verse = verses.find(candidate => candidate.ref === position.ref);
     const atStart = position.aliyah === 0 && !position.end && verses[0].ref === position.ref;
-    return `<div class="reader-card" id="reader-card">${position.end ? endActions() : pasukGroup(verse)}</div>
+    return `<div class="reader-card-deck">
+        <div class="reader-card-peek" aria-hidden="true" inert>${cardPeek(1)}</div>
+        <div class="reader-card" id="reader-card">${position.end ? endActions() : pasukGroup(verse)}</div>
+      </div>
       <nav class="card-nav" dir="rtl" aria-label="Pasuk">
         <button type="button" id="reader-previous" class="card-step" dir="ltr" ${atStart ? 'disabled' : ''}><span>Previous pasuk</span>${arrow('right')}</button>
         <button type="button" id="reader-next" class="card-step" dir="ltr" ${position.end ? 'disabled' : ''}>${arrow('left')}<span>Next pasuk</span></button>
@@ -213,7 +242,7 @@ export function createReader(app) {
     }
     const verses = parsha().aliyot[location.position.aliyah].verses;
     const content = mode === 'cards' ? cardsView(verses)
-      : mode === 'flow' ? `<div class="flow">${verses.map(pasukGroup).join('')}</div>${endActions()}`
+      : mode === 'flow' ? `<div class="flow">${verses.map(verse => pasukGroup(verse)).join('')}</div>${endActions()}`
         : `${classicText(verses)}${endActions()}`;
     return `<div class="reader-body" id="reader-body-${mode}" data-key="body-${mode}">${content}</div>`;
   }
@@ -225,6 +254,12 @@ export function createReader(app) {
     if (position.end && mode === 'cards') return `${aliyah} · End`;
     const { number, total } = pasukLocation(parsha(), position);
     return `${aliyah} · Pasuk ${number} of ${total}`;
+  }
+
+  function readingProgress() {
+    if (!ready()) return '';
+    const { number, total } = pasukLocation(parsha(), location.position);
+    return `<progress class="reader-progress" id="reader-progress" max="${total}" value="${number}" aria-label="Reading position in this aliyah" aria-valuetext="${locationText()}"></progress>`;
   }
 
   function parshaOptions(rows) {
@@ -262,6 +297,7 @@ export function createReader(app) {
           ${READER_MODES.map(option => `<button type="button" id="reader-mode-${option}" class="reader-mode" data-mode="${option}" aria-pressed="${option === mode}">${MODE_LABELS[option]}</button>`).join('')}
         </div>
         <p class="reader-location" id="reader-location">${locationText()}</p>
+        ${readingProgress()}
       </div>
       ${bodyMarkup()}
       <p class="reader-credit" data-key="reader-credit">
@@ -311,7 +347,7 @@ export function createReader(app) {
   // The last marker at or above the sticky bar's lower edge is what they are reading.
   function trackScroll() {
     frame = null;
-    if (app.tab() !== 'chumash' || !ready() || !location) return;
+    if (app.tab() !== 'chumash' || !ready() || !location || cardSwipe.active()) return;
     // A page that changed height moved under them (a font arriving, say); they didn't scroll.
     const height = document.documentElement.scrollHeight;
     if (height !== pageHeight) {
@@ -339,6 +375,9 @@ export function createReader(app) {
     if (ref === position.ref && part === position.part && end === position.end) return;
     setPosition({ aliyah: position.aliyah, ref, part, end }, { later: true });
     document.querySelector('#reader-location').textContent = locationText();
+    const meter = document.querySelector('#reader-progress');
+    meter.value = pasukLocation(parsha(), location.position).number;
+    meter.setAttribute('aria-valuetext', locationText());
   }
 
   window.addEventListener('scroll', () => { frame ??= requestAnimationFrame(trackScroll); }, { passive: true });
@@ -358,6 +397,7 @@ export function createReader(app) {
   /* ---------- Actions ---------- */
 
   function showAt(position, { direction = 0, announcement = '', focus = null } = {}) {
+    cardSwipe.cancel();
     saveNote = '';
     setPosition(position);
     pendingScroll = true;
@@ -377,6 +417,8 @@ export function createReader(app) {
   }
 
   function stepCard(direction, { focusControls = true } = {}) {
+    // A repeated button/key press completes the pending turn before starting another.
+    cardSwipe.finish();
     const next = stepPasuk(parsha(), location.position, direction);
     if (next === location.position) return;
     let focus = null;
@@ -386,14 +428,16 @@ export function createReader(app) {
     }
     const verse = !next.end && parsha().aliyot[next.aliyah].verses.find(candidate => candidate.ref === next.ref);
     const { number, total } = pasukLocation(parsha(), next);
-    showAt(next, {
-      direction, focus,
+    cardSwipe.dismiss(direction, () => showAt(next, {
+      focus,
       announcement: next.end ? `End of ${aliyahName(next.aliyah)}` : `Pasuk ${number} of ${total}, ${verse.chapter}:${verse.verse}`,
-    });
+    }));
   }
 
   function chooseMode(next) {
     if (next === mode) return;
+    cardSwipe.finish();
+    cardSwipe.cancel();
     mode = next;
     store.saveMode(location.owner, mode);
     pendingScroll = true;
@@ -419,25 +463,6 @@ export function createReader(app) {
       if (prefs.vibration) haptic([12, 50, 24]);
       app.announce(`${success} ${name()} complete.`);
     } else if (prefs.vibration) haptic(6);
-  }
-
-  function wireSwipe(card) {
-    let stroke = null;
-    card.onpointerdown = event => {
-      // Mouse dragging selects text. A second finger means a pinch, not a swipe.
-      stroke = event.pointerType !== 'mouse' && event.isPrimary && !event.target.closest('button, a, select')
-        ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: event.timeStamp } : null;
-    };
-    card.onpointercancel = () => { stroke = null; };
-    card.onpointerup = event => {
-      if (stroke?.id !== event.pointerId) return;
-      const direction = swipeDirection({
-        dx: event.clientX - stroke.x, dy: event.clientY - stroke.y, ms: event.timeStamp - stroke.at,
-        width: card.clientWidth, selecting: !(window.getSelection()?.isCollapsed ?? true),
-      });
-      stroke = null;
-      if (direction) stepCard(direction, { focusControls: false });
-    };
   }
 
   function wireEnd() {
@@ -493,7 +518,7 @@ export function createReader(app) {
     if (ready()) {
       wireEnd();
       if (mode === 'cards') {
-        wireSwipe(document.querySelector('#reader-card'));
+        cardSwipe.bind(document.querySelector('#reader-card'));
         document.querySelector('#reader-previous').onclick = () => stepCard(-1);
         document.querySelector('#reader-next').onclick = () => stepCard(1);
       }
@@ -510,15 +535,20 @@ export function createReader(app) {
       applyScroll();
     },
     left() {
+      cardSwipe.finish();
+      cardSwipe.cancel();
       flush();
+      opening = true;
       store.forget();
     },
     /** Nothing from the previous account stays in memory. Its bookmarks stay under its own keys. */
     reset() {
+      cardSwipe.cancel();
       flush();
       clearTimeout(saveTimer);
       loadToken += 1;
       location = null; mode = null; text = { status: 'loading' };
+      opening = true;
       pendingScroll = false; saveNote = ''; retrying = false;
       store.clearMemory();
     },

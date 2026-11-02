@@ -692,6 +692,9 @@ function settingsPanel() {
     <label class="setting-row">Peirush
       <input id="peirush-name" type="text" maxlength="80" placeholder="Rashi" autocomplete="off" dir="auto">
     </label>
+    <label class="setting-row">Chumash opening mode
+      <select id="default-reader-mode"><option value="last-used">Last used</option><option value="cards">Cards</option><option value="flow">Flow</option><option value="classic">Classic</option></select>
+    </label>
     <label class="setting-row">Parsha calendar
       <select id="location"><option value="false">Diaspora</option><option value="true">Israel</option></select>
     </label>
@@ -750,7 +753,7 @@ function wireSettings() {
     savePreference('followDevice', event.target.checked, true);
     document.querySelector('#follow-device').focus({ preventScroll: true });
   };
-  for (const [id, key] of [['light-theme', 'lightTheme'], ['dark-theme', 'darkTheme'], ['text-size', 'textSize'], ['parsha-naming', 'naming']]) {
+  for (const [id, key] of [['light-theme', 'lightTheme'], ['dark-theme', 'darkTheme'], ['text-size', 'textSize'], ['parsha-naming', 'naming'], ['default-reader-mode', 'defaultReaderMode']]) {
     const control = document.getElementById(id);
     if (!control) continue;
     control.value = prefs[key];
