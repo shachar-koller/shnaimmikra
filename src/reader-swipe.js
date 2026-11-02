@@ -20,7 +20,8 @@ export function createCardSwipe({ canStep, onSwipe, onDirection }) {
     if (reducedMotion()) return;
     // A filled animation survives an unrelated DOM morph without inline styles.
     const previous = animation;
-    animation = card.animate([{ transform: transform(pose) }], { duration: 1, fill: 'both' });
+    const frame = { transform: transform(pose) };
+    animation = card.animate([frame, frame], { duration: 1, fill: 'both' });
     previous?.cancel();
   }
 
