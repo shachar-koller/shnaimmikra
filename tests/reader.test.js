@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TextError, createTextLoader, resolveParsha, textSlug, textUrl } from '../src/chumash-text.js';
 import {
+  aliyahMarkCount,
   aliyahCompletionPatch, cleanPosition, createReaderStore, isMarked, mikraPatch, parshaReadingProgress, pasukLocation,
   resolvePosition, startPosition, stepPasuk, swipeDirection,
 } from '../src/reader-model.js';
@@ -221,4 +222,12 @@ test('a reload resumes only for the same guest or account', () => {
   assert.equal(store.resume('other'), null);
   store.forget();
   assert.equal(store.resume('account'), null);
+});
+
+test('aliyah mark count takes either commentary as the third reading, per aliyah', () => {
+  assert.equal(aliyahMarkCount(undefined, 0), 0);
+  assert.equal(aliyahMarkCount({ mikra1_1: true, mikra1_2: true }, 0), 1);
+  assert.equal(aliyahMarkCount({ mikra1_1: true, mikra2_1: true, onkelos_1: true }, 0), 3);
+  assert.equal(aliyahMarkCount({ mikra1_3: true, mikra2_3: true, rashi_3: true }, 2), 3);
+  assert.equal(aliyahMarkCount({ onkelos_1: true, rashi_1: true }, 0), 1);
 });

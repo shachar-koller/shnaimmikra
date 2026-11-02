@@ -6,7 +6,7 @@ import { preferences } from './preferences.js';
 import { ALIYAH_COUNT, ALIYAH_NAMES, aliyahField } from './readings.js';
 import { createTextLoader } from './chumash-text.js';
 import {
-  READER_MODES, SHNAYIM_MIKRA_READINGS, aliyahCompletionPatch, createReaderStore, isMarked, mikraPatch,
+  READER_MODES, SHNAYIM_MIKRA_READINGS, aliyahCompletionPatch, aliyahMarkCount, createReaderStore, isMarked, mikraPatch,
   parshaReadingProgress, pasukLocation, resolvePosition, startPosition, stepPasuk,
 } from './reader-model.js';
 import { celebrate, haptic, pop, slideIn } from './motion.js';
@@ -23,6 +23,7 @@ const ONES = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'];
 const TENS = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'];
 const hebrewNumber = n => n === 15 ? 'טו' : n === 16 ? 'טז' : `${TENS[Math.floor(n / 10)]}${ONES[n % 10]}`;
 const arrow = direction => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${direction === 'left' ? 'm15 5-7 7 7 7' : 'm9 5 7 7-7 7'}"/></svg>`;
+const chevron = '<svg class="reader-title-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 const tick = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
 
 export function createReader(app) {
@@ -37,7 +38,7 @@ export function createReader(app) {
   let text = { status: 'loading' }; // status: loading | ready | error
   let loadToken = 0, pendingScroll = false, dirty = false, saveTimer = null;
   let ownScroll = null, pageHeight = 0, frame = null, width = innerWidth;
-  let saveNote = '', retrying = false, fontRequested = false;
+  let saveNote = '', retrying = false, fontRequested = false, parshaRows = [];
   const cardSwipe = createCardSwipe({
     canStep: direction => ready() && stepPasuk(parsha(), location.position, direction) !== location.position,
     onSwipe: direction => stepCard(direction, { focusControls: false }),
@@ -90,7 +91,7 @@ export function createReader(app) {
       retrying = false;
       app.refresh();
       if (wasRetrying && document.activeElement === document.body) {
-        document.querySelector('#reader-retry, #reader-aliyah')?.focus({ preventScroll: true });
+        document.querySelector('#reader-retry, .aliyah-step[aria-current]')?.focus({ preventScroll: true });
       }
     });
   }
@@ -130,7 +131,7 @@ export function createReader(app) {
 
   function pasukPart(part, label, verse, parts, lang, missing, preview = false) {
     const css = preview ? 'peek-pasuk' : 'pasuk';
-    return `<div class="${css}-part"${preview ? '' : ` data-part="${part}" data-ref="${verse.ref}"`}>
+    return `<div class="${css}-part ${css}-part-${part}"${preview ? '' : ` data-part="${part}" data-ref="${verse.ref}"`}>
       <span class="${css}-label">${label}</span>
       ${parts ? `<p class="${css}-text" lang="${lang}" dir="rtl">${inline(parts)}</p>` : `<p class="${css}-missing">${missing}</p>`}
     </div>`;
@@ -197,12 +198,28 @@ export function createReader(app) {
       ${commentaryNote()}`;
   }
 
+  // Once this aliyah's marks are in, moving on is the obvious next step.
+  function marksDone(index) {
+    const patch = mode === 'classic'
+      ? { ...mikraPatch('mikra1', index), ...mikraPatch('mikra2', index) }
+      : aliyahCompletionPatch(index);
+    return isMarked(progress(), patch);
+  }
+
+  function nextParsha() {
+    const index = parshaRows.findIndex(row => row.id === location.id);
+    return index >= 0 ? parshaRows[index + 1] : undefined;
+  }
+
   function endActions() {
     const index = location.position.aliyah;
     const last = index === ALIYAH_COUNT - 1;
+    const lead = marksDone(index) ? ' reader-continue-lead' : '';
+    const following = last && nextParsha();
     const continuation = last
-      ? `<p class="reader-note">You’ve reached the end of ${esc(name())}.</p><button type="button" id="reader-choose-parsha" class="reader-continue">Choose another parsha</button>`
-      : `<button type="button" id="reader-continue" class="reader-continue">Continue to next aliyah<span class="reader-continue-name">${aliyahName(index + 1)}</span></button>`;
+      ? `${following ? `<button type="button" id="reader-next-parsha" class="reader-continue${lead}">Continue to ${esc(titleName(following.names, app.data().naming))}</button>` : ''}
+        <button type="button" id="reader-choose-parsha" class="reader-continue">Choose another parsha</button>`
+      : `<button type="button" id="reader-continue" class="reader-continue${lead}">Continue to next aliyah<span class="reader-continue-name">${aliyahName(index + 1)}</span></button>`;
     return `<section class="reader-end" aria-labelledby="reader-end-title">
       <h2 id="reader-end-title" tabindex="-1">${last ? `End of ${esc(name())}` : `End of ${aliyahName(index)}`}</h2>
       ${completionActions()}
@@ -222,13 +239,14 @@ export function createReader(app) {
     const { position } = location;
     const verse = verses.find(candidate => candidate.ref === position.ref);
     const atStart = position.aliyah === 0 && !position.end && verses[0].ref === position.ref;
+    const atLast = !position.end && verses.at(-1).ref === position.ref;
     return `<div class="reader-card-deck">
         <div class="reader-card-peek" aria-hidden="true" inert>${cardPeek(1)}</div>
         <div class="reader-card" id="reader-card">${position.end ? endActions() : pasukGroup(verse)}</div>
       </div>
       <nav class="card-nav" dir="rtl" aria-label="Pasuk">
         <button type="button" id="reader-previous" class="card-step" dir="ltr" ${atStart ? 'disabled' : ''}><span>Previous pasuk</span>${arrow('right')}</button>
-        <button type="button" id="reader-next" class="card-step" dir="ltr" ${position.end ? 'disabled' : ''}>${arrow('left')}<span>Next pasuk</span></button>
+        <button type="button" id="reader-next" class="card-step card-step-next" dir="ltr" ${position.end ? 'disabled' : ''}>${arrow('left')}<span>${atLast ? 'End of aliyah' : 'Next pasuk'}</span></button>
       </nav>`;
   }
 
@@ -276,6 +294,17 @@ export function createReader(app) {
       .map(row => `<option value="${esc(row.id)}">${esc(titleName(row.names, naming))}</option>`).join('')}</optgroup>`).join('');
   }
 
+  // Seven steps replace a menu: where you are, what's marked, and one tap to get anywhere.
+  function aliyahStep(label, index) {
+    const count = aliyahMarkCount(progress(), index);
+    const state = count === SHNAYIM_MIKRA_READINGS.length ? 'done' : count ? 'partial' : '';
+    const current = index === location.position.aliyah;
+    const description = `Aliyah ${index + 1}, ${label}, ${state === 'done' ? 'complete' : `${count} of ${SHNAYIM_MIKRA_READINGS.length} marked`}`;
+    return `<button type="button" id="reader-aliyah-${index}" class="aliyah-step${state ? ` ${state}` : ''}" data-aliyah="${index}" aria-label="${esc(description)}" title="${esc(description)}"${current ? ' aria-current="true"' : ''}>
+      ${state === 'done' ? tick : ''}<span>${current ? label : index + 1}</span>
+    </button>`;
+  }
+
   function panel(rows, item) {
     // Asked for now, so it usually arrives before the text and nothing has to reflow.
     if (!fontRequested) {
@@ -283,23 +312,17 @@ export function createReader(app) {
       document.fonts?.load('1rem "Reader Hebrew"', 'א').catch(() => {});
     }
     sync(item);
+    parshaRows = rows;
     const { naming } = app.data();
-    const aliyah = location.position.aliyah;
     return `<header class="titlerow" data-key="reader-title">
-        <h1${naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${heroName(item.names, naming)}</h1>
+        <div class="reader-title-pick">
+          <h1${naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${heroName(item.names, naming)}</h1>
+          ${chevron}
+          <select id="reader-parsha" aria-label="Choose parsha"${naming === 'hebrew' ? ' lang="he"' : ''}>${parshaOptions(rows)}</select>
+        </div>
         ${naming === 'hebrew' ? '' : `<span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>`}
       </header>
-      <div class="reader-picks" data-key="reader-picks">
-        <label class="reader-pick">Parsha<select id="reader-parsha"${naming === 'hebrew' ? ' lang="he"' : ''}>${parshaOptions(rows)}</select></label>
-        <div class="reader-pick">
-          <label for="reader-aliyah">Aliyah</label>
-          <div class="reader-aliyah-row" dir="rtl">
-            <button type="button" id="reader-aliyah-previous" class="reader-icon" aria-label="Previous aliyah" title="Previous aliyah" ${aliyah === 0 ? 'disabled' : ''}>${arrow('right')}</button>
-            <select id="reader-aliyah" dir="ltr">${ALIYAH_NAMES.map((label, index) => `<option value="${index}">${label}</option>`).join('')}</select>
-            <button type="button" id="reader-aliyah-next" class="reader-icon" aria-label="Next aliyah" title="Next aliyah" ${aliyah === ALIYAH_COUNT - 1 ? 'disabled' : ''}>${arrow('left')}</button>
-          </div>
-        </div>
-      </div>
+      <nav class="aliyah-strip" data-key="reader-aliyos" aria-label="Aliyah">${ALIYAH_NAMES.map(aliyahStep).join('')}</nav>
       <div class="reader-bar" data-key="reader-bar">
         <div class="reader-modes" role="group" aria-label="Reading mode">
           ${READER_MODES.map(option => `<button type="button" id="reader-mode-${option}" class="reader-mode" data-mode="${option}" aria-pressed="${option === mode}">${MODE_LABELS[option]}</button>`).join('')}
@@ -401,6 +424,15 @@ export function createReader(app) {
   document.fonts?.addEventListener('loadingdone', () => {
     if (app.tab() === 'chumash' && ready()) { pendingScroll = true; applyScroll(); }
   });
+  // The left key moves forward, matching the Next button's side and the Hebrew page turn.
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (app.tab() !== 'chumash' || mode !== 'cards' || !ready() || !location) return;
+    if (event.target.closest?.('select, input, textarea') || document.querySelector('.dialog')) return;
+    event.preventDefault();
+    stepCard(event.key === 'ArrowLeft' ? 1 : -1);
+  });
   window.addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
 
@@ -456,6 +488,13 @@ export function createReader(app) {
     app.announce(`${MODE_LABELS[mode]} view, ${locationText()}`);
   }
 
+  function chooseParsha(id) {
+    app.select(id);
+    app.render();
+    document.querySelector('#reader-parsha').focus({ preventScroll: true });
+    app.announce(`${name()} selected`);
+  }
+
   function mark(patch, focusSelector, success) {
     if (isMarked(progress(), patch)) return; // Repeating changes nothing, including sync state.
     const wasComplete = complete(progress());
@@ -487,10 +526,14 @@ export function createReader(app) {
       const reading = button.dataset.mark;
       mark(mikraPatch(reading, index), `#reader-mark-${reading}`, `${app.readingLabel(reading)} marked for ${aliyahName(index)}.`);
     });
-    on('#reader-continue', () => goToAliyah(index + 1, { focus: '#reader-aliyah' }));
+    on('#reader-continue', () => goToAliyah(index + 1, { focus: `#reader-aliyah-${index + 1}` }));
+    on('#reader-next-parsha', () => chooseParsha(nextParsha().id));
     on('#reader-choose-parsha', () => {
       quietScrollTo(0);
-      document.querySelector('#reader-parsha').focus({ preventScroll: true });
+      const select = document.querySelector('#reader-parsha');
+      select.focus({ preventScroll: true });
+      // Focus alone shows nothing on a phone. Older browsers without showPicker still get focus.
+      try { select.showPicker?.(); } catch { /* Needs a user gesture, which some browsers read narrowly. */ }
     });
   }
 
@@ -499,21 +542,10 @@ export function createReader(app) {
     store.remember(location.owner, location.year, location.id);
     const parshaSelect = document.querySelector('#reader-parsha');
     if (parshaSelect.value !== location.id) parshaSelect.value = location.id;
-    parshaSelect.onchange = () => {
-      app.select(parshaSelect.value);
-      app.render();
-      parshaSelect.focus({ preventScroll: true });
-      app.announce(`${name()} selected`);
-    };
-    const aliyahSelect = document.querySelector('#reader-aliyah');
-    const aliyah = String(location.position.aliyah);
-    if (aliyahSelect.value !== aliyah) aliyahSelect.value = aliyah;
-    aliyahSelect.onchange = () => goToAliyah(Number(aliyahSelect.value), { focus: '#reader-aliyah' });
-    document.querySelector('#reader-aliyah-previous').onclick = () => goToAliyah(location.position.aliyah - 1, {
-      focus: location.position.aliyah === 1 ? '#reader-aliyah' : '#reader-aliyah-previous',
-    });
-    document.querySelector('#reader-aliyah-next').onclick = () => goToAliyah(location.position.aliyah + 1, {
-      focus: location.position.aliyah === ALIYAH_COUNT - 2 ? '#reader-aliyah' : '#reader-aliyah-next',
+    parshaSelect.onchange = () => chooseParsha(parshaSelect.value);
+    document.querySelectorAll('[data-aliyah]').forEach(button => button.onclick = () => {
+      const index = Number(button.dataset.aliyah);
+      if (index !== location.position.aliyah) goToAliyah(index, { focus: `#reader-aliyah-${index}` });
     });
     document.querySelectorAll('[data-mode]').forEach(button => button.onclick = () => chooseMode(button.dataset.mode));
     const retry = document.querySelector('#reader-retry');

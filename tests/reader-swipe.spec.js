@@ -108,7 +108,7 @@ test('mouse dragging the card header works while Hebrew text stays selectable', 
 
 test('changing aliyah cancels an outgoing throw so it cannot restore the old verse', async ({ page }) => {
   await page.locator('#reader-next').click();
-  await page.locator('#reader-aliyah').selectOption('1');
+  await page.locator('#reader-aliyah-1').click();
   await page.waitForTimeout(350);
   await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 1:5');
   expect((await bookmark(page)).aliyah).toBe(1);

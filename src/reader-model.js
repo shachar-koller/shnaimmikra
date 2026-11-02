@@ -81,6 +81,9 @@ export const mikraPatch = (reading, aliyah) => {
   if (!MIKRA.includes(reading)) throw new Error(`${reading} is not a mikra reading`);
   return { [aliyahField(reading, aliyah)]: true };
 };
+/** Readings marked for one aliyah. Either commentary counts, as it does in the tracker's steps. */
+export const aliyahMarkCount = (progress, aliyah) => ['mikra1', 'mikra2'].filter(reading => progress?.[aliyahField(reading, aliyah)] === true).length
+  + (['onkelos', 'rashi'].some(reading => progress?.[aliyahField(reading, aliyah)] === true) ? 1 : 0);
 export const isMarked = (progress, patch) => Object.keys(patch).every(field => progress?.[field] === true);
 
 const POSITION_PREFIX = 'shnaim-mikra-reader-position';

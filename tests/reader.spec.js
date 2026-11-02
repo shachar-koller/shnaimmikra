@@ -87,7 +87,7 @@ test.describe('the three modes', () => {
     // 1:2 has a setumah, an inline gap. 1:4 has a petuchah at the end of the aliyah.
     await expect(page.locator('.classic-text p')).toHaveCount(1);
     await expect(page.locator('.classic-text .setumah')).toHaveCount(1);
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     // 2:1 breaks mid-verse, so that verse continues in a second paragraph.
     await expect(page.locator('.classic-text p')).toHaveCount(2);
     await expect(page.locator('.classic-text p').nth(0)).toContainText(torahWord('1:5'));
@@ -138,14 +138,14 @@ test.describe('keeping the place', () => {
     await scrollToVerse(page, '1:2', 'first');
     await expect(meter).toHaveJSProperty('value', 4);
 
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await expect(meter).toHaveJSProperty('value', 13);
     await page.reload();
     await expect(meter).toHaveJSProperty('value', 13);
     await expect(meter).toHaveJSProperty('max', 48);
 
     await mode(page, 'cards');
-    await page.locator('#reader-aliyah').selectOption('6');
+    await page.locator('#reader-aliyah-6').click();
     await expect(meter).toHaveJSProperty('value', 43);
     await page.locator('#reader-next').click();
     await expect(location(page)).toHaveText('Aliyah 7 · Pasuk 2 of 2');
@@ -160,7 +160,7 @@ test.describe('keeping the place', () => {
 
   test('switching modes keeps the pasuk across a perek boundary, and cards and flow keep the part', async ({ page }) => {
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 1 of 5');
     await scrollToVerse(page, '2:1', 'targum');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
@@ -194,7 +194,7 @@ test.describe('keeping the place', () => {
 
   test('the second torah reading of a long pasuk comes back after switching modes and tabs', async ({ page }) => {
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await scrollToVerse(page, '1:6', 'second');
     await expect.poll(() => savedPosition(page)).toEqual({ aliyah: 1, ref: '1:6', part: 'second', end: false });
     await mode(page, 'cards');
@@ -209,7 +209,7 @@ test.describe('keeping the place', () => {
 
   test('a reload returns to the reader, the mode, and the same pasuk', async ({ page }) => {
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await mode(page, 'cards');
     await page.locator('#reader-next').click();
     await page.locator('#reader-next').click();
@@ -219,7 +219,7 @@ test.describe('keeping the place', () => {
     await expect(page.locator('#reader-mode-cards')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 2:1');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
-    await expect(page.locator('#reader-aliyah')).toHaveValue('1');
+    await expect(page.locator('#reader-aliyah-1')).toHaveAttribute('aria-current', 'true');
     await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 19);
     await expect(page.locator('#reader-progress')).toHaveAttribute('max', '48');
   });
@@ -247,12 +247,12 @@ test.describe('keeping the place', () => {
     }, [GUEST_KEY]);
     await page.reload();
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('2');
+    await page.locator('#reader-aliyah-2').click();
     await expect(location(page)).toHaveText('Aliyah 3 · Pasuk 1 of 2');
 
     await page.locator('#reader-parsha').selectOption('Lech-Lecha');
     await expect(page.locator('#panel-chumash h1')).toHaveText('Parshas Lech Lecha');
-    await expect(page.locator('#reader-aliyah')).toHaveValue('0');
+    await expect(page.locator('#reader-aliyah-0')).toHaveAttribute('aria-current', 'true');
     await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
     await expect(page.locator('#reader-parsha')).toBeFocused();
 
@@ -274,7 +274,7 @@ test.describe('keeping the place', () => {
     await expect(location(page)).toHaveText('Aliyah 7 · Pasuk 2 of 2');
     expect(await savedPosition(page)).toMatchObject({ ref: '2:10', part: 'second' });
 
-    await page.locator('#reader-aliyah').selectOption('0');
+    await page.locator('#reader-aliyah-0').click();
     await mode(page, 'classic');
     await mode(page, 'flow');
     await scrollToVerse(page, '1:3');
@@ -330,7 +330,7 @@ test.describe('keeping the place', () => {
     await expect(page.locator('#reader-loading')).toBeVisible();
     await page.locator('#reader-parsha').selectOption('Vayera');
     await expect(page.locator('.flow .pasuk').first()).toBeVisible();
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 1 of 5');
     releaseNoach();
     await page.waitForTimeout(200);
@@ -385,7 +385,7 @@ test.describe('accounts and storage', () => {
   test('bookmarks and modes stay with their account across sign in and sign out', async ({ page }) => {
     await page.locator('#chumash').click();
     await mode(page, 'classic');
-    await page.locator('#reader-aliyah').selectOption('2');
+    await page.locator('#reader-aliyah-2').click();
     await expect(location(page)).toHaveText('Aliyah 3 · Pasuk 1 of 2');
 
     await mockAccount(page, { initialRows: [] });
@@ -393,7 +393,7 @@ test.describe('accounts and storage', () => {
     await page.locator('#chumash').click();
     await expect(page.locator('#reader-mode-flow')).toHaveAttribute('aria-pressed', 'true');
     await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 1 of 5');
 
     const key = 'shnaim-mikra-reader-position:11111111-1111-4111-8111-111111111111:5787:Noach';
@@ -411,7 +411,7 @@ test.describe('accounts and storage', () => {
   test('a signed-in reload returns to the reader and the account’s own place', async ({ page }) => {
     await mockAccount(page, { initialRows: [] });
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 1 of 5');
     await page.reload();
     await expect(page.locator('#chumash')).toHaveAttribute('aria-current', 'page');
@@ -476,7 +476,7 @@ test.describe('cards navigation', () => {
   test('vertical scrolling, small drags, slow presses and diagonal strokes do not change the card', async ({ page }) => {
     await page.locator('#chumash').click();
     await mode(page, 'cards');
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await page.locator('#reader-next').click();
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 1:6');
     const { middle, y } = await card(page);
@@ -531,7 +531,7 @@ test.describe('cards navigation', () => {
   test('a new pasuk starts at the top of its group, even after scrolling down a long one', async ({ page }) => {
     await page.locator('#chumash').click();
     await mode(page, 'cards');
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await page.locator('#reader-next').click();
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 1:6');
     await page.evaluate(() => window.scrollTo(0, 1500));
@@ -570,22 +570,23 @@ test.describe('cards navigation', () => {
 });
 
 test.describe('aliyah navigation', () => {
-  test('previous and next aliyah, a direct choice, and the end of the parsha', async ({ page }) => {
+  test('the aliyah strip names the current aliyah, moves directly, and leads to the end of the parsha', async ({ page }) => {
     await page.locator('#chumash').click();
-    await expect(page.locator('#reader-aliyah option')).toHaveText(['Rishon', 'Sheni', 'Shlishi', "Rivi'i", 'Chamishi', 'Shishi', "Shevi'i"]);
-    await expect(page.locator('#reader-aliyah-previous')).toBeDisabled();
-    await page.locator('#reader-aliyah-next').click();
+    const steps = page.locator('.aliyah-step');
+    await expect(steps).toHaveText(['Rishon', '2', '3', '4', '5', '6', '7']);
+    await expect(page.getByRole('button', { name: 'Chamishi, 0 of 3 marked' })).toBeVisible();
+    await page.locator('#reader-aliyah-1').click();
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 1 of 5');
-    await expect(page.locator('#reader-aliyah-next')).toBeFocused();
-    await page.locator('#reader-aliyah-previous').click();
+    await expect(steps).toHaveText(['1', 'Sheni', '3', '4', '5', '6', '7']);
+    await expect(page.locator('#reader-aliyah-1')).toBeFocused();
+    await page.locator('#reader-aliyah-0').click();
     await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
-    await expect(page.locator('#reader-aliyah')).toBeFocused();
+    await expect(page.locator('#reader-aliyah-0')).toBeFocused();
 
     await page.locator('#reader-continue').click();
-    await expect(page.locator('#reader-aliyah')).toHaveValue('1');
+    await expect(page.locator('#reader-aliyah-1')).toHaveAttribute('aria-current', 'true');
     expect(await page.evaluate(() => scrollY)).toBe(0);
-    await page.locator('#reader-aliyah').selectOption('6');
-    await expect(page.locator('#reader-aliyah-next')).toBeDisabled();
+    await page.locator('#reader-aliyah-6').click();
     await expect(page.locator('#reader-continue')).toHaveCount(0);
     await expect(page.locator('.reader-end h2')).toHaveText('End of Noach');
     await page.locator('#reader-choose-parsha').click();
@@ -594,9 +595,39 @@ test.describe('aliyah navigation', () => {
     expect(text.requests).toEqual(['noach']);
     expect(await progressOf(page)).toEqual({});
   });
+
+  test('the end of a parsha offers the next one, and only moves when asked', async ({ page }) => {
+    await page.locator('#chumash').click();
+    await page.locator('#reader-aliyah-6').click();
+    await expect(page.locator('#panel-chumash h1')).toHaveText('Parshas Noach');
+    await page.locator('#reader-next-parsha').click();
+    await expect(page.locator('#panel-chumash h1')).toHaveText('Parshas Lech Lecha');
+    await expect(page.locator('#reader-parsha')).toBeFocused();
+    await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
+    expect(await progressOf(page)).toEqual({});
+  });
 });
 
 test.describe('completion', () => {
+  test('the aliyah strip shows saved marks, and moving on leads once an aliyah is marked', async ({ page }) => {
+    await page.locator('#chumash').click();
+    await expect(page.locator('#reader-continue')).not.toHaveClass(/reader-continue-lead/);
+    await page.locator('#reader-complete').click();
+    await expect(page.locator('#reader-aliyah-0')).toHaveClass(/done/);
+    await expect(page.getByRole('button', { name: 'Rishon, complete' })).toBeVisible();
+    await expect(page.locator('#reader-continue')).toHaveClass(/reader-continue-lead/);
+
+    await page.locator('#reader-aliyah-1').click();
+    await mode(page, 'classic');
+    await page.locator('#reader-mark-mikra1').click();
+    await expect(page.locator('#reader-aliyah-1')).toHaveClass(/partial/);
+    await expect(page.getByRole('button', { name: 'Sheni, 1 of 3 marked' })).toBeVisible();
+    await expect(page.locator('#reader-continue')).not.toHaveClass(/reader-continue-lead/);
+    await page.locator('#reader-mark-mikra2').click();
+    await expect(page.locator('#reader-continue')).toHaveClass(/reader-continue-lead/);
+    await expect(page.locator('#reader-aliyah-1')).toHaveClass(/partial/);
+  });
+
   test('nothing but an explicit action marks progress', async ({ page }) => {
     await page.locator('#chumash').click();
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
@@ -622,7 +653,7 @@ test.describe('completion', () => {
     }, [GUEST_KEY]);
     await page.reload();
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('1');
+    await page.locator('#reader-aliyah-1').click();
     await expect(page.locator('.reader-note').filter({ hasText: 'Your tracker is showing Rashi' })).toBeVisible();
     await page.locator('#reader-complete').scrollIntoViewIfNeeded();
     await expect(page.locator('.reader-end')).toContainText('Marks Mikra I, Mikra II and Targum for this aliyah only.');
@@ -639,7 +670,7 @@ test.describe('completion', () => {
     expect(await progressOf(page)).toEqual(expected);
     expect(await progressOf(page, 'Bereshit')).toEqual({ mikra1_1: true });
     await expect(page.locator('.reader-status li.on')).toHaveCount(3);
-    await expect(page.locator('#reader-aliyah'), 'marking does not move on by itself').toHaveValue('1');
+    await expect(page.locator('#reader-aliyah-1'), 'marking does not move on by itself').toHaveAttribute('aria-current', 'true');
 
     // The tracker's own rule still decides: three rashi to one targum keeps Rashi showing.
     await page.locator('#tracker').click();
@@ -652,7 +683,7 @@ test.describe('completion', () => {
   test('targum marks show in the tracker, and completing every aliyah completes the parsha', async ({ page }) => {
     await page.locator('#chumash').click();
     for (let aliyah = 0; aliyah < 7; aliyah += 1) {
-      await page.locator('#reader-aliyah').selectOption(String(aliyah));
+      await page.locator(`#reader-aliyah-${aliyah}`).click();
       await page.locator('#reader-complete').click();
       await expect(page.locator('#reader-complete')).toHaveText('Aliyah complete');
     }
@@ -706,11 +737,11 @@ test.describe('completion', () => {
 
   test('completing a later aliyah leaves earlier ones unmarked', async ({ page }) => {
     await page.locator('#chumash').click();
-    await page.locator('#reader-aliyah').selectOption('4');
+    await page.locator('#reader-aliyah-4').click();
     await page.locator('#reader-complete').click();
     await expect(page.locator('#reader-complete')).toHaveText('Aliyah complete');
     expect(await progressOf(page)).toEqual({ mikra1_5: true, mikra2_5: true, onkelos_5: true });
-    await page.locator('#reader-aliyah').selectOption('3');
+    await page.locator('#reader-aliyah-3').click();
     await expect(page.locator('#reader-complete')).toHaveText('Mark aliyah complete');
   });
 });
@@ -722,12 +753,12 @@ test.describe('loading and offline', () => {
     await page.locator('#chumash').click();
     await expect(page.locator('#reader-loading')).toHaveText('Loading Noach…');
     await expect(location(page)).toHaveText('Aliyah 2');
-    await expect(page.locator('#reader-aliyah')).toHaveValue('1');
+    await expect(page.locator('#reader-aliyah-1')).toHaveAttribute('aria-current', 'true');
     text.fail('noach');
     release();
     await expect(page.locator('#reader-error')).toContainText('couldn’t be loaded right now');
     await expect(page.locator('#reader-error')).toContainText('Your place is saved');
-    await expect(page.locator('#reader-aliyah')).toHaveValue('1');
+    await expect(page.locator('#reader-aliyah-1')).toHaveAttribute('aria-current', 'true');
     expect(await savedPosition(page)).toMatchObject({ aliyah: 1, ref: '2:1' });
     text.recover('noach');
     await page.locator('#reader-retry').click();
@@ -786,7 +817,7 @@ test.describe('double weeks', () => {
     await expect(page.locator('h1')).toHaveText('Parshas Tazria');
     await page.locator('#chumash').click();
     await expect(page.locator('#panel-chumash h1')).toHaveText('Parshas Tazria');
-    await expect(page.locator('#reader-aliyah option')).toHaveCount(7);
+    await expect(page.locator('.aliyah-step')).toHaveCount(7);
     await page.locator('#reader-complete').click();
     await expect(page.locator('#reader-complete')).toHaveText('Aliyah complete');
     await page.locator('#reader-parsha').selectOption('Metzora');
@@ -811,10 +842,10 @@ test.describe('layout and access', () => {
       await page.locator('#chumash').click();
       for (const name of ['flow', 'cards', 'classic']) {
         await mode(page, name);
-        await page.locator('#reader-aliyah').selectOption('1');
+        await page.locator('#reader-aliyah-1').click();
         expect(await noOverflow(page), `${theme} ${name}`).toBe(true);
       }
-      await page.locator('#reader-aliyah').selectOption('0');
+      await page.locator('#reader-aliyah-0').click();
     }
     await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
     const action = await page.locator('#reader-continue').boundingBox();
@@ -834,7 +865,7 @@ test.describe('layout and access', () => {
     const barBottom = await page.locator('.reader-bar').evaluate(element => element.getBoundingClientRect().bottom);
     const top = await page.locator('[data-ref="1:3"][data-part="first"]').evaluate(element => element.getBoundingClientRect().top);
     expect(top).toBeGreaterThanOrEqual(barBottom);
-    const small = await page.locator('.reader-picks select, .reader-icon, .reader-mark, .reader-continue').evaluateAll(elements =>
+    const small = await page.locator('.reader-title-pick, .aliyah-step, .reader-mark, .reader-continue').evaluateAll(elements =>
       elements.filter(element => element.getBoundingClientRect().height < 44).map(element => element.id));
     expect(small).toEqual([]);
     expect((await page.locator('.reader-mode').first().boundingBox()).height).toBeGreaterThanOrEqual(36);
@@ -875,11 +906,25 @@ test.describe('layout and access', () => {
     await expect(page.locator('.flow')).toBeVisible();
     await page.locator('#reader-parsha').focus();
     const order = [];
-    for (let press = 0; press < 6; press += 1) {
+    for (let press = 0; press < 11; press += 1) {
       await page.keyboard.press('Tab');
       order.push(await page.evaluate(() => document.activeElement.id));
     }
-    expect(order).toEqual(['reader-aliyah-previous', 'reader-aliyah', 'reader-aliyah-next', 'reader-mode-cards', 'reader-mode-flow', 'reader-mode-classic', 'reader-complete'].filter(id => id !== 'reader-aliyah-previous'), 'previous aliyah is disabled at Rishon, so it is skipped');
+    expect(order).toEqual([0, 1, 2, 3, 4, 5, 6].map(index => `reader-aliyah-${index}`).concat('reader-mode-cards', 'reader-mode-flow', 'reader-mode-classic', 'reader-complete'));
+  });
+
+  test('arrow keys turn cards in the direction of the buttons, but not from a menu or in flow', async ({ page }) => {
+    await page.locator('#chumash').click();
+    await page.keyboard.press('ArrowLeft');
+    await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
+    await mode(page, 'cards');
+    await page.keyboard.press('ArrowLeft');
+    await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 2 of 4');
+    await page.keyboard.press('ArrowRight');
+    await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
+    await page.locator('#reader-parsha').focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
   });
 
   test('cards work by keyboard alone, and modes announce once without scroll chatter', async ({ page }) => {

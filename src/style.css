@@ -947,16 +947,27 @@ footer .warn { color: var(--warning); }
 .reader-view :is(button, select, a, h2) { scroll-margin-block: 96px calc(var(--tabbar-space) + 72px); }
 /* The reader's title stays small: on a phone, every line it takes is a line of text lost. */
 .reader-view .titlerow { align-items: center; }
-.reader-view .titlerow h1 { font-size: clamp(1.25rem, 4.6vw, 1.625rem); letter-spacing: -.025em; }
-.reader-view .he { font-size: clamp(1rem, 3.6vw, 1.25rem); }
-.reader-picks { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; margin-top: 12px; }
-.reader-pick { display: grid; gap: 2px; min-width: 0; font-size: 0.75rem; color: var(--muted); }
-.reader-pick select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit; font-size: 0.9375rem; }
-.reader-pick select[lang='he'] { font-family: var(--hebrew); }
-.reader-aliyah-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 4px; }
-.reader-icon { display: grid; place-items: center; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
-.reader-icon svg, .card-step svg { width: 18px; height: 18px; flex: none; }
-.reader-icon:disabled, .card-step:disabled { color: var(--disabled); opacity: .55; cursor: default; }
+.reader-view .titlerow h1 { min-width: 0; font-size: clamp(1.125rem, 4.6vw, 1.625rem); letter-spacing: -.025em; }
+.reader-view .he { flex: none; max-width: none; font-size: clamp(.9375rem, 3.6vw, 1.25rem); white-space: nowrap; }
+/* The title is the parsha menu: the native picker sits invisibly over it. */
+.reader-title-pick { position: relative; display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 44px; border-radius: 10px; }
+.reader-title-pick:has(select:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+.reader-title-pick select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; color: var(--ink); background: var(--card); font-size: 1rem; cursor: pointer; }
+.reader-title-pick select:focus-visible { outline: none; }
+.reader-title-chevron { flex: none; width: 18px; height: 18px; color: var(--muted); }
+.aliyah-strip { display: flex; gap: 4px; margin-top: 8px; }
+.aliyah-step { display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 3px; min-width: 0; min-height: 44px; padding: 0 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--soft-ink); font-size: 0.8125rem; font-weight: 600; font-variant-numeric: tabular-nums; transition: background-color var(--fast) ease, color var(--fast) ease; }
+.aliyah-step svg { flex: none; width: 13px; height: 13px; color: var(--green); }
+.aliyah-step.partial { border-color: var(--reading-on-line); background: color-mix(in srgb, var(--reading-on) 45%, var(--card)); }
+.aliyah-step.done { border-color: var(--reading-on-line); background: var(--reading-on); color: var(--ink); }
+.aliyah-step.done:not([aria-current]) span { display: none; }
+.aliyah-step[aria-current] { flex: 0 0 auto; padding-inline: 12px; border-color: var(--ink); color: var(--ink); white-space: nowrap; box-shadow: inset 0 0 0 1px var(--ink); }
+@media (hover: hover) {
+  .reader-title-pick:hover .reader-title-chevron { color: var(--ink); }
+  .aliyah-step:not([aria-current]):hover { border-color: var(--muted); color: var(--ink); }
+}
+.card-step svg { width: 18px; height: 18px; flex: none; }
+.card-step:disabled { color: var(--disabled); opacity: .55; cursor: default; }
 /* Sits flush under the phone's status area and stays small enough to leave the text room. */
 .reader-bar {
   position: sticky;
@@ -967,8 +978,9 @@ footer .warn { color: var(--warning); }
   align-items: center;
   justify-content: space-between;
   gap: 4px 12px;
-  margin: 8px -6px 0;
-  padding: 6px;
+  /* As wide as the Targum band, whose edges would otherwise show beside the bar. */
+  margin: 8px -10px 0;
+  padding: 6px 10px;
   background: var(--page);
 }
 /* Scrolled text must not show through the phone's status area above the bar. */
@@ -984,11 +996,14 @@ footer .warn { color: var(--warning); }
 .reader-state { margin-top: 16px; padding: 28px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: center; color: var(--soft-ink); font-size: 0.9375rem; }
 .reader-state .reader-continue { margin-inline: auto; margin-top: 14px; max-width: 240px; }
 .reader-body { margin-top: 10px; }
-.pasuk-ref, .peek-pasuk-ref { color: var(--muted); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Labels sit on the right, where the eye starts each Hebrew line. */
+.pasuk-ref, .peek-pasuk-ref { color: var(--soft-ink); font-size: 0.8125rem; font-weight: 650; font-variant-numeric: tabular-nums; text-align: end; }
 .pasuk-ref [lang='he'], .peek-pasuk-ref [lang='he'] { font-size: 0.9375rem; }
-.pasuk-part, .peek-pasuk-part { padding-top: 12px; }
-.pasuk-part + .pasuk-part, .peek-pasuk-part + .peek-pasuk-part { margin-top: 10px; border-top: 1px solid var(--line); }
-.pasuk-label, .peek-pasuk-label { display: block; color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
+.pasuk-part, .peek-pasuk-part { padding-top: 10px; }
+/* Targum sits on a soft band, so the two Torah readings around it are easy to tell apart. */
+.pasuk-part-targum, .peek-pasuk-part-targum { margin: 10px -10px 0; padding: 8px 10px 10px; border-radius: 12px; background: var(--tilebg); }
+.pasuk-part-targum .pasuk-text, .peek-pasuk-part-targum .peek-pasuk-text { font-size: calc(var(--reader-size) * .92); }
+.pasuk-label, .peek-pasuk-label { display: block; color: var(--muted); font-size: 0.6875rem; font-weight: 600; text-align: end; }
 /* Cantillation sits above and below the line, so the line height is what keeps it clear. */
 .pasuk-text, .peek-pasuk-text, .classic-text { font-family: var(--reader-font); font-size: var(--reader-size); line-height: 2; color: var(--ink); overflow-wrap: break-word; }
 .pasuk-text, .peek-pasuk-text { margin-top: 2px; text-align: start; }
@@ -1032,12 +1047,13 @@ html:has(.reader-card-deck), body:has(.reader-card-deck) { overflow-x: clip; }
 }
 .card-step { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 46px; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-size: 0.875rem; font-weight: 600; transition: background-color var(--fast) ease, scale var(--fast) ease; }
 .card-step:not(:disabled):active { scale: .98; }
+.card-step-next:not(:disabled) { border-color: transparent; background: var(--button-bg); color: var(--button-ink); }
 .pasuk, .peek-pasuk { padding-block: 4px; }
 /* The gap between pesukim is deliberately stronger than the one between readings. */
 .flow .pasuk + .pasuk { margin-top: 28px; padding-top: 22px; border-top: 2px solid var(--track); }
-.classic-text { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: start; }
+.classic-text { margin-top: 12px; text-align: start; }
 .classic-text p + p { margin-top: 1em; }
-.verse-mark { margin-inline: 3px 2px; color: var(--muted); font-size: .55em; font-weight: 400; line-height: 0; vertical-align: super; }
+.verse-mark { margin-inline: 3px 2px; color: var(--soft-ink); font-size: .62em; font-weight: 400; line-height: 0; vertical-align: super; }
 .perek-mark { display: inline-block; padding-inline: .5em; border: 1px solid var(--line); border-radius: 999px; color: var(--soft-ink); font-size: .6em; line-height: 1.6; vertical-align: .12em; }
 .setumah { display: inline-block; width: 2.5em; }
 .reader-end { display: grid; gap: 10px; margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
@@ -1059,16 +1075,28 @@ html:has(.reader-card-deck), body:has(.reader-card-deck) { overflow-x: clip; }
 .reader-continue { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0 8px; width: 100%; min-height: 48px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 0.9375rem; font-weight: 600; }
 .reader-continue:disabled { opacity: .55; cursor: wait; }
 .reader-continue-name { color: var(--muted); font-weight: 400; }
-.reader-credit { margin: 18px 6px 0; color: var(--muted); font-size: 0.6875rem; line-height: 1.5; }
+.reader-continue-lead { border-color: transparent; background: var(--button-bg); color: var(--button-ink); }
+.reader-continue-lead .reader-continue-name { color: inherit; opacity: .72; }
+.reader-credit { margin: 28px 6px 0; color: var(--muted); font-size: 0.6875rem; line-height: 1.5; }
 .reader-credit a { color: inherit; }
+/* Text fades out above the floating tab bar, so its labels never sit on top of Hebrew. */
+.reader-view::after { content: ''; position: fixed; inset: auto 0 0; z-index: 4; height: calc(var(--tabbar-space) + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--page) 55%, transparent); pointer-events: none; }
+/* Cards' sticky buttons sit just above the bar, so nothing should show in the gap between them. */
+.reader-view:has(.card-nav)::after { background: linear-gradient(to top, var(--page) 85%, transparent); }
 @media (min-width: 601px) {
   .reader-view { --reader-size: 1.625rem; }
-  .reader-card, .classic-text, .reader-end { padding: 20px 24px; }
+  .reader-card, .reader-end { padding: 20px 24px; }
+}
+@media (max-width: 600px) {
+  /* The tab bar already says where you are, and this line is worth more as text. */
+  .page:has(.reader-view) .topbar { display: none; }
 }
 @media (max-width: 380px) {
-  .reader-card, .classic-text, .reader-end { padding: 12px; }
+  .reader-card, .reader-end { padding: 12px; }
   .reader-view { --reader-size: 1.375rem; }
-  .reader-picks { grid-template-columns: minmax(0, 1fr); }
+  .aliyah-strip { gap: 3px; }
+  .aliyah-step[aria-current] { padding-inline: 8px; }
+  .card-step { padding-inline: 6px; font-size: 0.8125rem; }
 }
 
 html[data-text-size='larger'] { font-size: 112.5%; }

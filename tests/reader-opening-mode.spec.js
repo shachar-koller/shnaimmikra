@@ -19,25 +19,25 @@ for (const preferred of ['cards', 'flow', 'classic']) {
     await page.locator('#chumash').click();
     await selectedMode(page, preferred);
     await expect(page.locator(`#reader-body-${preferred}`)).toBeVisible();
-    await page.locator('#reader-aliyah').selectOption('2');
+    await page.locator('#reader-aliyah-2').click();
 
     const manual = preferred === 'cards' ? 'classic' : 'cards';
     await page.locator(`#reader-mode-${manual}`).click();
     await selectedMode(page, manual);
     // Navigating within this reading session must not reapply the preference.
-    await page.locator('#reader-aliyah').selectOption('3');
+    await page.locator('#reader-aliyah-3').click();
     await selectedMode(page, manual);
     await page.locator('#settings').click();
     await expect(openingMode(page)).toHaveValue(preferred);
     await page.locator('#chumash').click();
     await selectedMode(page, preferred);
-    await expect(page.locator('#reader-aliyah')).toHaveValue('3');
+    await expect(page.locator('#reader-aliyah-3')).toHaveAttribute('aria-current', 'true');
     await expect(page.locator('#reader-location')).toHaveText('Aliyah 4 · Pasuk 1 of 1');
 
     await page.locator(`#reader-mode-${manual}`).click();
     await page.reload();
     await selectedMode(page, preferred);
-    await expect(page.locator('#reader-aliyah')).toHaveValue('3');
+    await expect(page.locator('#reader-aliyah-3')).toHaveAttribute('aria-current', 'true');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('shnaim-mikra-v1')).progress)).toEqual({});
   });
 }

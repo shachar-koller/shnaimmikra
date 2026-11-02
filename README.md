@@ -4,9 +4,11 @@ a vibe coded shnaim mikra tracking app.
 
 The Chumash tab shows the selected parsha one aliyah at a time, in three views of the same reading session:
 
-- **Cards:** one pasuk at a time, as Torah, Targum Onkelos, then the same Torah again. Move with **Next pasuk** and **Previous pasuk**, or swipe. Pages turn the Hebrew way: pull right for the next pasuk. Cards follow and tilt with your drag, reveal the next card underneath, and fly away on release; a short drag springs back. On a computer, drag the card header or empty space to swipe; dragging Hebrew text still selects it. Reduced motion keeps navigation instant.
+- **Cards:** one pasuk at a time, as Torah, Targum Onkelos, then the same Torah again. Move with **Next pasuk** and **Previous pasuk**, the arrow keys, or a swipe. Pages turn the Hebrew way: pull right, or press the left arrow, for the next pasuk. Cards follow and tilt with your drag, reveal the next card underneath, and fly away on release; a short drag springs back. On a computer, drag the card header or empty space to swipe; dragging Hebrew text still selects it. Reduced motion keeps navigation instant.
 - **Flow:** the whole aliyah as a scrolling page, with that same three-part sequence for each pasuk.
 - **Classic:** ordinary Torah text with each pasuk once, verse markers, perek markers and the source's petuchah and setumah breaks. Classic has no Onkelos.
+
+Tap the parsha title to choose another parsha. The row of seven steps below it moves between aliyos and shows what is marked: a tick for all three readings, a tint for some. The end of the last aliyah offers the next parsha, and only moves there when you ask.
 
 Your place is kept per parsha, as a pasuk rather than a scroll offset, so it survives switching views, switching tabs and reloading. A parsha you have not opened starts at its first pasuk, whatever the tracker shows. The view and your places are saved in this browser, separately for guests and each account. They don't sync between devices.
 
