@@ -17,7 +17,8 @@ import { sefarimFor, seferOf, fixName as formatName, titleName as formatTitle, h
 import { peirushName, progressText } from './progress.js';
 import { ALIYAH_NAMES, COMMENTARIES, chosenCommentary, commentarySwapPatch, otherCommentary, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
 import { morph } from './morph.js';
-import { slideIn, pop, squish, haptic, celebrate, reducedMotion } from './motion.js';
+import { applyGlass } from './glass.js';
+import { slideIn, pop, glide, followPointer, haptic, celebrate, reducedMotion } from './motion.js';
 
 const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -43,6 +44,7 @@ function applyTheme() {
   const theme = resolvedTheme(data, systemDark.matches);
   document.documentElement.dataset.theme = theme;
   document.documentElement.dataset.textSize = preferences(data).textSize;
+  applyGlass(preferences(data).glass, DARK_THEMES.includes(theme));
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',
     document.documentElement.dataset.screen === 'welcome'
       ? (systemDark.matches ? '#1e1e1e' : '#f5f5f5')
@@ -343,7 +345,10 @@ function shell(skipTarget, skipLabel, content) {
 function tabBar() {
   const active = TABS.findIndex(({ id }) => id === tab);
   return `<nav class="tabbar" aria-label="Main" style="--active:${active}">
+    <span class="glass-rim" aria-hidden="true"></span>
     <span class="tablens" aria-hidden="true"></span>
+    <span class="tabglint" aria-hidden="true"></span>
+    <span class="glass-edge" aria-hidden="true"></span>
     ${TABS.map(({ id, label, icon }) => {
       const signedIn = id === 'account' && user;
       const name = signedIn ? ` aria-label="${escapeHtml(`Account, ${user.email || 'signed in'}`)}"` : '';
@@ -355,6 +360,10 @@ function tabBar() {
 
 function wireTabs() {
   document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => setTab(button.dataset.tab));
+  const bar = document.querySelector('.tabbar');
+  bar.onpointermove = bar.onpointerdown = event => followPointer(bar, event);
+  // iOS Safari only applies :active inside an element with a touch listener.
+  bar.ontouchstart = () => {};
 }
 
 function setTab(next) {
@@ -364,7 +373,8 @@ function setTab(next) {
     return;
   }
   const order = id => TABS.findIndex(entry => entry.id === id);
-  const direction = Math.sign(order(next) - order(tab));
+  const previous = order(tab);
+  const direction = Math.sign(order(next) - previous);
   if (tab === 'tracker') trackerScroll = window.scrollY;
   document.querySelector('#settings-status')?.replaceChildren();
   tab = next;
@@ -372,7 +382,7 @@ function setTab(next) {
   document.getElementById(next).focus({ preventScroll: true });
   window.scrollTo({ top: next === 'tracker' ? trackerScroll : 0, behavior: 'instant' });
   slideIn([document.querySelector('main')], direction);
-  squish(document.querySelector('.tablens'));
+  glide(document.querySelector('.tablens'), previous, order(next));
   announce(`${TABS[order(next)].label} tab`);
 }
 
@@ -651,7 +661,11 @@ function settingsPanel() {
       ${themes.map(theme => `<button type="button" class="theme-option" data-theme-choice="${theme.id}" aria-pressed="${data.theme === theme.id}"><span class="theme-swatch swatch-${theme.id}" aria-hidden="true"></span>${theme.label}</button>`).join('')}
     </div></div>`}
     <label class="setting-row">Text size<select id="text-size"><option value="standard">Standard</option><option value="larger">Larger</option></select></label>
+    <label class="setting-row glass-setting">Tab bar glass
+      <span class="glass-slider"><span aria-hidden="true">Opaque</span><input id="glass-level" type="range" min="0" max="100" step="1"><span aria-hidden="true">Very glassy</span></span>
+    </label>
     </div>
+    ${matchMedia('(prefers-reduced-transparency: reduce)').matches ? '<p class="dialog-note">Your device’s reduced transparency setting keeps the tab bar opaque.</p>' : ''}
     </section>
     <section class="settings-section" aria-label="Learning">
     <div class="settings-group">
@@ -710,6 +724,11 @@ function wireSettings() {
     if (rerender) render();
     document.querySelector('#settings-status').textContent = storageOK ? '' : 'Preference changed, but browser storage could not save it.';
   }
+  const glassLevel = document.querySelector('#glass-level');
+  // A background render can't pull the thumb out from under a drag.
+  if (document.activeElement !== glassLevel) glassLevel.value = prefs.glass;
+  glassLevel.oninput = () => { data.glass = glassLevel.valueAsNumber; applyTheme(); };
+  glassLevel.onchange = () => savePreference('glass', glassLevel.valueAsNumber);
   document.querySelector('#follow-device').onchange = event => {
     savePreference('followDevice', event.target.checked, true);
     document.querySelector('#follow-device').focus({ preventScroll: true });

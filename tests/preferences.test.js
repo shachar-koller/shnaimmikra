@@ -6,7 +6,7 @@ import { createBackup, parseBackup } from '../src/backup.js';
 import { fixName, titleName, heroName, sefarimFor } from '../src/names.js';
 import { reminderCalendar } from '../src/reminders.js';
 
-const settings = { followDevice: true, lightTheme: 'parchment', darkTheme: 'midnight', textSize: 'larger', naming: 'hebrew', confetti: false, vibration: false, reminderDays: [1, 4], reminderTime: '18:30' };
+const settings = { followDevice: true, lightTheme: 'parchment', darkTheme: 'midnight', textSize: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, reminderDays: [1, 4], reminderTime: '18:30' };
 function repository() {
   const memory = new Map();
   return createRepository({ getItem: key => memory.get(key), setItem: (key, value) => memory.set(key, value) });
@@ -35,7 +35,7 @@ test('old saves retain defaults and malformed optional backup preferences are re
   assert.equal(resolvedTheme({ ...old, theme: 'forest-dark' }, false), 'forest-dark');
   assert.equal(resolvedTheme({ ...old, ...settings }, false), 'parchment');
   assert.equal(resolvedTheme({ ...old, ...settings }, true), 'midnight');
-  for (const patch of [{ followDevice: 'true' }, { lightTheme: 'midnight' }, { darkTheme: 'forest' }, { naming: 'unknown' }, { textSize: 30 }, { confetti: null }, { vibration: 1 }, { reminderDays: [7] }, { reminderDays: [1, 1] }, { reminderTime: '25:00' }]) {
+  for (const patch of [{ followDevice: 'true' }, { lightTheme: 'midnight' }, { darkTheme: 'forest' }, { naming: 'unknown' }, { textSize: 30 }, { glass: 101 }, { glass: 1.5 }, { glass: '60' }, { confetti: null }, { vibration: 1 }, { reminderDays: [7] }, { reminderDays: [1, 1] }, { reminderTime: '25:00' }]) {
     assert.equal(validPreferences(patch), false);
     const backup = JSON.parse(createBackup(old));
     Object.assign(backup.data, patch);

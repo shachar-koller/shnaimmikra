@@ -21,13 +21,58 @@ export function pop(element, scale = 1.14) {
   );
 }
 
-/** The tab lens stretches as it travels, like a droplet. Uses `scale`, so it can't fight the slide's `transform`. */
-export function squish(element) {
-  if (reducedMotion() || !element) return;
-  element.animate(
-    [{ scale: '1 1' }, { scale: '1.22 .86', offset: .35 }, { scale: '.96 1.05', offset: .7 }, { scale: '1 1' }],
-    { duration: 420, easing: EASE_OUT },
-  );
+const SPRING_STIFFNESS = 300, SPRING_DAMPING = 28;
+const STRETCH_LIMIT = .24, STRETCH_VELOCITY = 9;
+const glides = new WeakMap();
+
+/** A damped spring from `from` to `to` in 60 fps samples. Positions are in tab widths, velocities in tab widths per second. */
+export function springPath(from, to, velocity = 0) {
+  const path = [{ x: from, v: velocity }];
+  let x = from, v = velocity;
+  while (path.length < 120) {
+    for (let step = 0; step < 4; step += 1) {
+      v += (SPRING_STIFFNESS * (to - x) - SPRING_DAMPING * v) / 240;
+      x += v / 240;
+    }
+    if (Math.abs(to - x) < .002 && Math.abs(v) < .05) break;
+    path.push({ x, v });
+  }
+  path.push({ x: to, v: 0 });
+  return path;
+}
+
+/** Faster travel pulls the lens longer and thinner, up to a limit, like a droplet. */
+export function lensFrame({ x, v }) {
+  const stretch = STRETCH_LIMIT * (1 - Math.exp(-Math.abs(v) / STRETCH_VELOCITY));
+  return { transform: `translateX(${x * 100}%) scale(${1 + stretch}, ${1 - stretch * .4})` };
+}
+
+/**
+ * Glides the tab lens to `to`. The spring is sampled ahead of time so the compositor plays it,
+ * and morph() can't disturb it because nothing is written to the style attribute. A tap during
+ * a glide picks up the current position and velocity instead of restarting.
+ */
+export function glide(lens, from, to) {
+  if (reducedMotion() || !lens) return;
+  const running = glides.get(lens);
+  let start = { x: from, v: 0 };
+  if (running?.animation.playState === 'running') {
+    const index = Math.floor(running.animation.currentTime / running.duration * (running.path.length - 1));
+    start = running.path[Math.min(index, running.path.length - 1)];
+    running.animation.cancel();
+  }
+  const path = springPath(start.x, to, start.v);
+  const duration = (path.length - 1) * 1000 / 60;
+  glides.set(lens, { path, duration, animation: lens.animate(path.map(lensFrame), { duration }) });
+}
+
+/** Moves the bar's soft highlight under the pointer, as glass catches light where it is touched. */
+export function followPointer(bar, { clientX, clientY }) {
+  if (reducedMotion()) return;
+  const { left, top } = bar.getBoundingClientRect();
+  const glint = bar.querySelector('.tabglint');
+  glint.style.setProperty('--x', `${clientX - left}px`);
+  glint.style.setProperty('--y', `${clientY - top}px`);
 }
 
 export function haptic(pattern) {
