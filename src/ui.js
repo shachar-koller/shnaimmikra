@@ -18,6 +18,7 @@ import { peirushName, progressText } from './progress.js';
 import { ALIYAH_NAMES, COMMENTARIES, chosenCommentary, commentarySwapPatch, otherCommentary, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
 import { morph } from './morph.js';
 import { slideIn, pop, squish, haptic, celebrate, reducedMotion } from './motion.js';
+import { createReader } from './reader.js';
 
 const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -66,6 +67,27 @@ const cycleLabel = cycle => `${cycle}–${String(cycle + 1).slice(2)}`;
 const titleName = names => formatTitle(names, data.naming);
 const heroName = names => formatHero(names, data.naming);
 const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Targum', rashi: peirushName(data.peirushName) }[reading]);
+const reader = createReader({
+  escapeHtml, readingLabel,
+  data: () => data,
+  owner: () => user?.id || null,
+  year: () => year,
+  tab: () => tab,
+  progress: id => state(id),
+  save: (id, patch) => setProgress(id, patch),
+  commentaryOf: id => commentaryOf(id),
+  select(id) { chosen = id; activeSefer = seferOf(id); completedFeedback = null; },
+  render: () => render(),
+  refresh: () => refreshUnlessDialogOpen(),
+  announce: message => announce(message),
+});
+// A reload puts someone who was reading back in the reader. A fresh launch opens the tracker.
+function resumeReader() {
+  const saved = reader.resume(user?.id);
+  if (!saved || Math.abs(saved.year - cycleYear(new Date(), data.israel)) > 1) { reader.forget(); return; }
+  year = saved.year; chosen = saved.id; activeSefer = seferOf(saved.id);
+  tab = 'chumash';
+}
 const pickKey = id => `commentary-pick:${viewKey(id)}`;
 // Covers a parsha switched before anything is checked. Once there are checks, they decide.
 function pickedCommentary(id) {
@@ -366,11 +388,13 @@ function setTab(next) {
   const order = id => TABS.findIndex(entry => entry.id === id);
   const direction = Math.sign(order(next) - order(tab));
   if (tab === 'tracker') trackerScroll = window.scrollY;
+  if (tab === 'chumash') reader.left();
   document.querySelector('#settings-status')?.replaceChildren();
   tab = next;
   render();
   document.getElementById(next).focus({ preventScroll: true });
   window.scrollTo({ top: next === 'tracker' ? trackerScroll : 0, behavior: 'instant' });
+  if (next === 'chumash') reader.entered();
   slideIn([document.querySelector('main')], direction);
   squish(document.querySelector('.tablens'));
   announce(`${TABS[order(next)].label} tab`);
@@ -379,8 +403,9 @@ function setTab(next) {
 function renderPanel(rows) {
   const status = document.querySelector('#settings-status')?.textContent;
   const content = { chumash: () => chumashPanel(rows), settings: settingsPanel, account: accountPanel }[tab]();
-  morph(document.querySelector('#app'), shell(`#panel-${tab}`, 'Skip to content', `<main id="panel-${tab}" class="settings-view">${content}</main>`));
+  morph(document.querySelector('#app'), shell(`#panel-${tab}`, 'Skip to content', `<main id="panel-${tab}" class="settings-view${tab === 'chumash' ? ' reader-view' : ''}">${content}</main>`));
   wireTabs();
+  if (tab === 'chumash') reader.wire();
   if (tab === 'settings') wireSettings();
   if (tab === 'account') wireAccount();
   const statusLine = document.querySelector('#settings-status');
@@ -390,15 +415,7 @@ function renderPanel(rows) {
 }
 
 function chumashPanel(rows) {
-  const item = rows.find(row => row.id === chosen) || currentParsha(rows);
-  return `<header class="titlerow">
-      <h1${data.naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${heroName(item.names)}</h1>
-      ${data.naming === 'hebrew' ? '' : `<span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>`}
-    </header>
-    <section class="card chumash-empty" aria-label="Chumash">
-      <h2>Chumash text is coming soon</h2>
-      <p>This tab will show the parsha you have selected in the tracker.</p>
-    </section>`;
+  return reader.panel(rows, rows.find(row => row.id === chosen) || currentParsha(rows));
 }
 
 function wire(rows, item) {
@@ -923,8 +940,10 @@ session.subscribe((snapshot, { refresh, accountChanged }) => {
     completedFeedback = null;
     document.querySelector('.dialog')?.removeAttribute('aria-busy');
     closeModal();
+    reader.reset();
     year = cycleYear(new Date(), data.israel); chosen = null; activeSefer = null;
     tab = 'tracker'; trackerScroll = 0;
+    resumeReader();
     render();
   } else if (refresh) {
     if (previousCalendar !== data.israel) { year = cycleYear(new Date(), data.israel); chosen = null; activeSefer = null; }
@@ -944,6 +963,8 @@ const refreshCalendar = () => {
   refreshUnlessDialogOpen();
 };
 setInterval(refreshCalendar, 60000);
+// With accounts, the session's first event says whose reader this is, and resumes it there.
+if (ready) resumeReader();
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshCalendar(); });
 render();
 }

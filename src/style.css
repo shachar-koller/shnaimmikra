@@ -1,3 +1,11 @@
+/* Self-hosted so it works offline. Frank Ruhl Libre has no cantillation marks. */
+@font-face {
+  font-family: 'Reader Hebrew';
+  src: url('/fonts/noto-serif-hebrew-hebrew-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
 /* Lets progress rings animate; plain custom properties cannot be interpolated. */
 @property --progress { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
 :root {
@@ -781,9 +789,6 @@ footer .warn { color: var(--warning); }
   --danger-button: #933e3b;
 }
 .settings-body { margin-top: 16px; }
-.chumash-empty { margin-top: 16px; padding-block: 28px; text-align: center; }
-.chumash-empty h2 { font-size: 1.0625rem; font-weight: 650; letter-spacing: -.01em; }
-.chumash-empty p { margin-top: 6px; font-size: 0.875rem; color: var(--muted); }
 .settings-section + .settings-section { margin-top: 24px; }
 .settings-group { overflow: hidden; background: var(--settings-card); border: 1px solid var(--line); border-radius: 12px; }
 .settings-group > * + * { position: relative; }
@@ -824,6 +829,115 @@ footer .warn { color: var(--warning); }
 .danger-button:hover { filter: brightness(.9); }
 .settings-action:disabled, .secondary:disabled, .danger-button:disabled { opacity: .55; cursor: wait; }
 #settings-status:empty, #sync-status:empty, #delete-status:empty { display: none; }
+
+/* Chumash reader. Sizes are in rem, so the Larger text setting and browser zoom both apply. */
+.reader-view {
+  --reader-font: 'Reader Hebrew', 'Noto Serif Hebrew', 'SBL Hebrew', 'Taamey Frank CLM', var(--hebrew);
+  --reader-size: 1.5rem;
+  max-width: 680px;
+}
+.reader-view :is(button, select, a, h2) { scroll-margin-block: 96px calc(var(--tabbar-space) + 72px); }
+/* The reader's title stays small: on a phone, every line it takes is a line of text lost. */
+.reader-view .titlerow { align-items: center; }
+.reader-view .titlerow h1 { font-size: clamp(1.25rem, 4.6vw, 1.625rem); letter-spacing: -.025em; }
+.reader-view .he { font-size: clamp(1rem, 3.6vw, 1.25rem); }
+.reader-picks { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 8px; margin-top: 12px; }
+.reader-pick { display: grid; gap: 2px; min-width: 0; font-size: 0.75rem; color: var(--muted); }
+.reader-pick select { width: 100%; min-width: 0; min-height: 44px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit; font-size: 0.9375rem; }
+.reader-pick select[lang='he'] { font-family: var(--hebrew); }
+.reader-aliyah-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 4px; }
+.reader-icon { display: grid; place-items: center; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+.reader-icon svg, .card-step svg { width: 18px; height: 18px; flex: none; }
+.reader-icon:disabled, .card-step:disabled { color: var(--disabled); opacity: .55; cursor: default; }
+/* Sits flush under the phone's status area and stays small enough to leave the text room. */
+.reader-bar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 8px -6px 0;
+  padding: 6px;
+  background: var(--page);
+}
+/* Scrolled text must not show through the phone's status area above the bar. */
+.reader-bar::before { content: ''; position: absolute; inset: calc(-1 * env(safe-area-inset-top, 0px)) 0 100%; background: var(--page); }
+.reader-modes { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; padding: 2px; border-radius: 9px; background: var(--tilebg); }
+.reader-mode { min-height: 36px; min-width: 58px; padding: 4px 8px; border-radius: 7px; color: var(--soft-ink); font-size: 0.8125rem; font-weight: 500; transition: background-color var(--fast) ease, color var(--fast) ease; }
+.reader-mode[aria-pressed='true'] { background: var(--green); color: var(--on-accent); }
+.reader-location { color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reader-state { margin-top: 16px; padding: 28px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: center; color: var(--soft-ink); font-size: 0.9375rem; }
+.reader-state .reader-continue { margin-inline: auto; margin-top: 14px; max-width: 240px; }
+.reader-body { margin-top: 10px; }
+.pasuk-ref { color: var(--muted); font-size: 0.75rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pasuk-ref [lang='he'] { font-size: 0.9375rem; }
+.pasuk-part { padding-top: 12px; }
+.pasuk-part + .pasuk-part { margin-top: 10px; border-top: 1px solid var(--line); }
+.pasuk-label { display: block; color: var(--muted); font-size: 0.6875rem; font-weight: 500; }
+/* Cantillation sits above and below the line, so the line height is what keeps it clear. */
+.pasuk-text, .classic-text { font-family: var(--reader-font); font-size: var(--reader-size); line-height: 2; color: var(--ink); overflow-wrap: break-word; }
+.pasuk-text { margin-top: 2px; text-align: start; }
+.pasuk-missing { margin-top: 4px; color: var(--warning); font-size: 0.875rem; font-style: italic; }
+.tx-big { font-size: 1.35em; }
+.tx-small { font-size: .8em; }
+.tx-bold { font-weight: 700; }
+.tx-ketiv, .tx-note { color: var(--muted); font-size: .72em; }
+.reader-card { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); touch-action: pan-y pinch-zoom; }
+.reader-card .reader-end { margin: 0; padding: 0; border: 0; background: none; }
+.card-nav {
+  position: sticky;
+  bottom: calc(var(--tabbar-space) - 14px + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+  padding-block: 6px;
+  background: var(--page);
+}
+.card-step { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 46px; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font-size: 0.875rem; font-weight: 600; transition: background-color var(--fast) ease, scale var(--fast) ease; }
+.card-step:not(:disabled):active { scale: .98; }
+.pasuk { padding-block: 4px; }
+/* The gap between pesukim is deliberately stronger than the one between readings. */
+.flow .pasuk + .pasuk { margin-top: 28px; padding-top: 22px; border-top: 2px solid var(--track); }
+.classic-text { margin-top: 12px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); text-align: start; }
+.classic-text p + p { margin-top: 1em; }
+.verse-mark { margin-inline: 3px 2px; color: var(--muted); font-size: .55em; font-weight: 400; line-height: 0; vertical-align: super; }
+.perek-mark { display: inline-block; padding-inline: .5em; border: 1px solid var(--line); border-radius: 999px; color: var(--soft-ink); font-size: .6em; line-height: 1.6; vertical-align: .12em; }
+.setumah { display: inline-block; width: 2.5em; }
+.reader-end { display: grid; gap: 10px; margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.reader-end h2 { font-size: 1.0625rem; font-weight: 650; letter-spacing: -.01em; }
+.reader-end h2:focus { outline: none; }
+.reader-note { color: var(--muted); font-size: 0.75rem; line-height: 1.45; }
+.reader-warning { color: var(--warning); }
+.reader-warning:empty { display: none; }
+.reader-status { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-size: 0.8125rem; color: var(--muted); }
+.reader-status li { display: inline-flex; align-items: center; gap: 4px; }
+.reader-status li.on { color: var(--ink); }
+.reader-status svg { width: 14px; height: 14px; color: var(--green); }
+.reader-status i { width: 10px; height: 10px; margin: 2px; border: 1.5px solid var(--check-line); border-radius: 3px; }
+.reader-marks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.reader-mark { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; min-width: 0; padding: 8px 10px; border-radius: 12px; background: var(--button-bg, var(--ink)); color: var(--button-ink, var(--page)); font-size: 0.9375rem; font-weight: 650; transition: background-color var(--fast) ease, color var(--fast) ease; }
+.reader-mark svg { width: 16px; height: 16px; flex: none; }
+.reader-mark.done { background: var(--reading-on); border: 1px solid var(--reading-on-line); color: var(--ink); cursor: default; }
+.reader-mark.done svg { color: var(--green); }
+.reader-continue { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0 8px; width: 100%; min-height: 48px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 0.9375rem; font-weight: 600; }
+.reader-continue:disabled { opacity: .55; cursor: wait; }
+.reader-continue-name { color: var(--muted); font-weight: 400; }
+.reader-credit { margin: 18px 6px 0; color: var(--muted); font-size: 0.6875rem; line-height: 1.5; }
+.reader-credit a { color: inherit; }
+@media (min-width: 601px) {
+  .reader-view { --reader-size: 1.625rem; }
+  .reader-card, .classic-text, .reader-end { padding: 20px 24px; }
+}
+@media (max-width: 380px) {
+  .reader-card, .classic-text, .reader-end { padding: 12px; }
+  .reader-view { --reader-size: 1.375rem; }
+  .reader-picks { grid-template-columns: minmax(0, 1fr); }
+}
 
 html[data-text-size='larger'] { font-size: 112.5%; }
 .settings-view .setting-row input[type='checkbox'] {
