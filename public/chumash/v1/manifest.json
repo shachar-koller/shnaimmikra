@@ -1,0 +1,293 @@
+{
+  "format": 1,
+  "version": 1,
+  "retrieved": "2026-11-02",
+  "parshiyos": [
+    {
+      "id": "Bereshit",
+      "file": "bereshit.json",
+      "verses": 146
+    },
+    {
+      "id": "Noach",
+      "file": "noach.json",
+      "verses": 153
+    },
+    {
+      "id": "Lech-Lecha",
+      "file": "lech-lecha.json",
+      "verses": 126
+    },
+    {
+      "id": "Vayera",
+      "file": "vayera.json",
+      "verses": 147
+    },
+    {
+      "id": "Chayei Sara",
+      "file": "chayei-sara.json",
+      "verses": 105
+    },
+    {
+      "id": "Toldot",
+      "file": "toldot.json",
+      "verses": 106
+    },
+    {
+      "id": "Vayetzei",
+      "file": "vayetzei.json",
+      "verses": 148
+    },
+    {
+      "id": "Vayishlach",
+      "file": "vayishlach.json",
+      "verses": 153
+    },
+    {
+      "id": "Vayeshev",
+      "file": "vayeshev.json",
+      "verses": 112
+    },
+    {
+      "id": "Miketz",
+      "file": "miketz.json",
+      "verses": 146
+    },
+    {
+      "id": "Vayigash",
+      "file": "vayigash.json",
+      "verses": 106
+    },
+    {
+      "id": "Vayechi",
+      "file": "vayechi.json",
+      "verses": 85
+    },
+    {
+      "id": "Shemot",
+      "file": "shemot.json",
+      "verses": 124
+    },
+    {
+      "id": "Vaera",
+      "file": "vaera.json",
+      "verses": 121
+    },
+    {
+      "id": "Bo",
+      "file": "bo.json",
+      "verses": 106
+    },
+    {
+      "id": "Beshalach",
+      "file": "beshalach.json",
+      "verses": 116
+    },
+    {
+      "id": "Yitro",
+      "file": "yitro.json",
+      "verses": 75
+    },
+    {
+      "id": "Mishpatim",
+      "file": "mishpatim.json",
+      "verses": 118
+    },
+    {
+      "id": "Terumah",
+      "file": "terumah.json",
+      "verses": 96
+    },
+    {
+      "id": "Tetzaveh",
+      "file": "tetzaveh.json",
+      "verses": 101
+    },
+    {
+      "id": "Ki Tisa",
+      "file": "ki-tisa.json",
+      "verses": 139
+    },
+    {
+      "id": "Vayakhel",
+      "file": "vayakhel.json",
+      "verses": 122
+    },
+    {
+      "id": "Pekudei",
+      "file": "pekudei.json",
+      "verses": 92
+    },
+    {
+      "id": "Vayikra",
+      "file": "vayikra.json",
+      "verses": 111
+    },
+    {
+      "id": "Tzav",
+      "file": "tzav.json",
+      "verses": 97
+    },
+    {
+      "id": "Shmini",
+      "file": "shmini.json",
+      "verses": 91
+    },
+    {
+      "id": "Tazria",
+      "file": "tazria.json",
+      "verses": 67
+    },
+    {
+      "id": "Metzora",
+      "file": "metzora.json",
+      "verses": 90
+    },
+    {
+      "id": "Achrei Mot",
+      "file": "achrei-mot.json",
+      "verses": 80
+    },
+    {
+      "id": "Kedoshim",
+      "file": "kedoshim.json",
+      "verses": 64
+    },
+    {
+      "id": "Emor",
+      "file": "emor.json",
+      "verses": 124
+    },
+    {
+      "id": "Behar",
+      "file": "behar.json",
+      "verses": 57
+    },
+    {
+      "id": "Bechukotai",
+      "file": "bechukotai.json",
+      "verses": 78
+    },
+    {
+      "id": "Bamidbar",
+      "file": "bamidbar.json",
+      "verses": 159
+    },
+    {
+      "id": "Nasso",
+      "file": "nasso.json",
+      "verses": 176
+    },
+    {
+      "id": "Beha'alotcha",
+      "file": "beha-alotcha.json",
+      "verses": 136
+    },
+    {
+      "id": "Sh'lach",
+      "file": "sh-lach.json",
+      "verses": 119
+    },
+    {
+      "id": "Korach",
+      "file": "korach.json",
+      "verses": 95
+    },
+    {
+      "id": "Chukat",
+      "file": "chukat.json",
+      "verses": 87
+    },
+    {
+      "id": "Balak",
+      "file": "balak.json",
+      "verses": 104
+    },
+    {
+      "id": "Pinchas",
+      "file": "pinchas.json",
+      "verses": 168
+    },
+    {
+      "id": "Matot",
+      "file": "matot.json",
+      "verses": 112
+    },
+    {
+      "id": "Masei",
+      "file": "masei.json",
+      "verses": 132
+    },
+    {
+      "id": "Devarim",
+      "file": "devarim.json",
+      "verses": 105
+    },
+    {
+      "id": "Vaetchanan",
+      "file": "vaetchanan.json",
+      "verses": 122
+    },
+    {
+      "id": "Eikev",
+      "file": "eikev.json",
+      "verses": 111
+    },
+    {
+      "id": "Re'eh",
+      "file": "re-eh.json",
+      "verses": 126
+    },
+    {
+      "id": "Shoftim",
+      "file": "shoftim.json",
+      "verses": 97
+    },
+    {
+      "id": "Ki Teitzei",
+      "file": "ki-teitzei.json",
+      "verses": 110
+    },
+    {
+      "id": "Ki Tavo",
+      "file": "ki-tavo.json",
+      "verses": 122
+    },
+    {
+      "id": "Nitzavim",
+      "file": "nitzavim.json",
+      "verses": 40
+    },
+    {
+      "id": "Vayeilech",
+      "file": "vayeilech.json",
+      "verses": 30
+    },
+    {
+      "id": "Ha'azinu",
+      "file": "ha-azinu.json",
+      "verses": 52
+    },
+    {
+      "id": "Vezot Haberakhah",
+      "file": "vezot-haberakhah.json",
+      "verses": 41
+    }
+  ],
+  "sources": {
+    "torah": {
+      "title": "Miqra according to the Masorah",
+      "license": "CC-BY-SA",
+      "source": "https://he.wikisource.org/wiki/%D7%9E%D7%A9%D7%AA%D7%9E%D7%A9:Dovi/%D7%9E%D7%A7%D7%A8%D7%90_%D7%A2%D7%9C_%D7%A4%D7%99_%D7%94%D7%9E%D7%A1%D7%95%D7%A8%D7%94"
+    },
+    "onkelos": {
+      "title": "Onkelos (Torat Emet)",
+      "license": "Public Domain",
+      "source": "http://toratemetfreeware.com/"
+    },
+    "aliyot": {
+      "title": "Sefaria Parasha index",
+      "source": "https://www.sefaria.org/api/v2/raw/index/Genesis"
+    }
+  }
+}
