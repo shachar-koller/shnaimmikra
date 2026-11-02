@@ -280,14 +280,33 @@ main { min-width: 0; }
 .topbar { margin-bottom: 8px; padding-inline-start: 6px; }
 .brand { font-size: 0.8125rem; font-weight: 600; letter-spacing: -.01em; color: var(--muted); white-space: nowrap; }
 
-/* Liquid glass tab bar. Tints mix from --card, so each theme gets its own glass. */
+/*
+ * Liquid glass tab bar. Each layer below is a sibling because a backdrop-filter can't see past
+ * a filtered parent. Back to front: ::before (the pane), .glass-rim (its thick edge), .tablens,
+ * .tabglint, .glass-edge (lit outline), then the tab hover fills and ::after (reflections).
+ * Tints mix from --card, so each theme gets its own glass. The Settings level drives the
+ * --glass-* amounts set on the root by glass.js; colors here are that material at full strength.
+ */
 .tabbar {
-  --glass-rim: rgba(255, 255, 255, .85);
-  --glass-rim-low: rgba(255, 255, 255, .28);
-  --glass-edge: rgba(0, 0, 0, .1);
-  --glass-shadow: rgba(0, 0, 0, .12);
-  --glass-sheen: rgba(255, 255, 255, .5);
-  --glass-lens: color-mix(in srgb, var(--ink) 9%, transparent);
+  --glass-tint: color-mix(in srgb, var(--card) var(--glass-tint-amount), transparent);
+  --glass-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  --glass-refract-filter: url(#glass-refraction) blur(var(--glass-refract-blur)) saturate(var(--glass-saturate));
+  --glass-rim-filter: blur(var(--glass-rim-blur)) saturate(var(--glass-rim-saturate)) brightness(var(--glass-rim-brightness));
+  --glass-halo: color-mix(in srgb, var(--card) 88%, transparent);
+  --glass-light: #fff;
+  --glass-light-low: rgba(255, 255, 255, .3);
+  --glass-light-back: rgba(255, 255, 255, .85);
+  --glass-sheen: rgba(255, 255, 255, .9);
+  --glass-pool: rgba(255, 255, 255, .6);
+  --glass-depth: rgba(0, 0, 0, .12);
+  --glass-hairline: rgba(0, 0, 0, .09);
+  --glass-shadow: rgba(0, 0, 0, .16);
+  --glass-lens: color-mix(in srgb, var(--ink) 8%, transparent);
+  --glass-lens-light: rgba(255, 255, 255, .75);
+  --glass-lens-shade: rgba(0, 0, 0, .07);
+  --glass-glint: rgba(255, 255, 255, .5);
+  --glass-press: color-mix(in srgb, var(--ink) 7%, transparent);
+  --glass-spring: linear(0, .114, .342, .581, .769, .913, 1.001, 1.044, 1.057, 1.053, 1.04, 1.027, 1.015, 1.006, 1.001, .998, 1);
   position: fixed;
   z-index: 30;
   left: 50%;
@@ -299,34 +318,89 @@ main { min-width: 0; }
   width: max-content;
   padding: 3px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--card) 46%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
-  backdrop-filter: blur(14px) saturate(190%) brightness(1.04);
   /* Keep the shadow compact so it fades before Safari's bottom toolbar clips it. */
   box-shadow:
-    inset 0 1px .5px var(--glass-rim),
-    inset 0 -1px 1px var(--glass-rim-low),
-    0 0 0 .5px var(--glass-edge),
-    0 2px 6px rgba(0, 0, 0, .08),
-    0 3px 8px -2px var(--glass-shadow);
+    0 0 0 .5px var(--glass-hairline),
+    0 1px 3px rgba(0, 0, 0, .07),
+    0 4px 8px -2px var(--glass-shadow);
+  transition: scale 420ms var(--glass-spring);
 }
 :root:is([data-theme='forest-dark'], [data-theme='dark-grayscale'], [data-theme='midnight']) .tabbar {
-  --glass-rim: rgba(255, 255, 255, .3);
-  --glass-rim-low: rgba(255, 255, 255, .08);
-  --glass-edge: rgba(255, 255, 255, .1);
-  --glass-shadow: rgba(0, 0, 0, .3);
-  --glass-sheen: rgba(255, 255, 255, .1);
-  --glass-lens: color-mix(in srgb, var(--ink) 16%, transparent);
+  --glass-light: rgba(255, 255, 255, .8);
+  --glass-light-low: rgba(255, 255, 255, .12);
+  --glass-light-back: rgba(255, 255, 255, .42);
+  --glass-sheen: rgba(255, 255, 255, .26);
+  --glass-pool: rgba(255, 255, 255, .17);
+  --glass-depth: rgba(0, 0, 0, .34);
+  --glass-hairline: rgba(0, 0, 0, .4);
+  --glass-shadow: rgba(0, 0, 0, .38);
+  --glass-lens: color-mix(in srgb, var(--ink) 15%, transparent);
+  --glass-lens-light: rgba(255, 255, 255, .3);
+  --glass-lens-shade: rgba(0, 0, 0, .2);
+  --glass-glint: rgba(255, 255, 255, .16);
+  --glass-press: color-mix(in srgb, var(--ink) 10%, transparent);
 }
-/* The curved highlight that reads as a thick pane catching the light. */
-.tabbar::before {
+.tabbar::before, .tabbar::after, .glass-rim, .glass-edge, .tabglint {
   content: '';
   position: absolute;
   z-index: -1;
-  inset: 1px 1px 50%;
-  border-radius: 24px 24px 12px 12px / 24px 24px 5px 5px;
-  background: linear-gradient(to bottom, var(--glass-sheen), transparent);
+  inset: 0;
+  border-radius: inherit;
   pointer-events: none;
+}
+.tabbar::before {
+  background: var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+/* Where refraction can't run, the pane's edge blurs and brightens more than its clear center. */
+.glass-rim {
+  opacity: var(--glass-rim-opacity);
+  -webkit-backdrop-filter: var(--glass-rim-filter);
+  backdrop-filter: var(--glass-rim-filter);
+  --rim-mask:
+    linear-gradient(to bottom, #000, transparent var(--glass-rim-reach), transparent calc(100% - var(--glass-rim-reach)), #000),
+    linear-gradient(to right, #000, transparent calc(var(--glass-rim-reach) / 3), transparent calc(100% - var(--glass-rim-reach) / 3), #000);
+  -webkit-mask-image: var(--rim-mask);
+  mask-image: var(--rim-mask);
+}
+.refraction .tabbar::before {
+  -webkit-backdrop-filter: var(--glass-refract-filter);
+  backdrop-filter: var(--glass-refract-filter);
+}
+.refraction .glass-rim { display: none; }
+/* Light enters from the upper left and exits lower right, so the outline fades along the sides. */
+.glass-edge {
+  opacity: var(--glass-edge-opacity);
+  padding: var(--glass-edge-width);
+  background: linear-gradient(118deg, var(--glass-light), var(--glass-light-low) 26%, var(--glass-light-low) 68%, var(--glass-light-back));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* A soft window reflection above, and the light the pane focuses pooling below. */
+.tabbar::after {
+  opacity: var(--glass-reflection-opacity);
+  background:
+    radial-gradient(66% 20% at 50% 8%, var(--glass-gloss), transparent),
+    radial-gradient(72% 13% at 50% 95%, var(--glass-gloss), transparent),
+    radial-gradient(58% 42% at 26% 0, var(--glass-sheen), transparent),
+    radial-gradient(48% 30% at 74% 100%, var(--glass-pool), transparent);
+  box-shadow:
+    inset 0 0 var(--glass-depth-size) var(--glass-depth),
+    inset 0 -1px 2px var(--glass-light-low);
+}
+.tabglint { overflow: hidden; opacity: 0; transition: opacity var(--med) ease; }
+.tabglint::before {
+  content: '';
+  position: absolute;
+  top: -48px;
+  left: -48px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--glass-glint), transparent);
+  translate: var(--x, 0) var(--y, 0);
 }
 .tablens {
   position: absolute;
@@ -335,11 +409,15 @@ main { min-width: 0; }
   width: 56px;
   border-radius: 999px;
   background: var(--glass-lens);
-  box-shadow: inset 0 1px .5px var(--glass-rim-low), inset 0 0 0 .5px var(--glass-rim-low);
+  box-shadow:
+    inset 0 .5px .5px var(--glass-lens-light),
+    inset 0 -.5px .5px var(--glass-lens-shade),
+    0 1px 2px var(--glass-lens-shade);
   transform: translateX(calc(var(--active) * 100%));
-  transition: transform 460ms cubic-bezier(.3, 1.35, .5, 1);
+  transition: scale 420ms var(--glass-spring);
 }
 .tab {
+  position: relative;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -347,24 +425,51 @@ main { min-width: 0; }
   min-height: 46px;
   padding: 2px;
   border-radius: 999px;
-  color: var(--soft-ink);
+  color: color-mix(in srgb, var(--ink) 78%, var(--soft-ink));
+  /* Clearer glass shows more of the page, so the labels carry a soft halo of the theme's surface. */
+  text-shadow: 0 0 5px var(--glass-halo), 0 0 2px var(--glass-halo);
   transition: color var(--fast) ease;
+}
+.tab::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-press);
+  opacity: 0;
+  scale: .9;
+  transition: opacity var(--med) ease, scale 420ms var(--glass-spring);
 }
 .tab[aria-current='page'] { color: var(--ink); }
 .tab:focus-visible { border-radius: 999px; outline-offset: -2px; }
-.tab > svg, .tab-avatar { width: 20px; height: 20px; transition: scale var(--med) var(--ease-out); }
-.tab:active > svg, .tab:active .tab-avatar { scale: .86; }
+.tab > svg, .tab-avatar { width: 20px; height: 20px; transition: scale 420ms var(--glass-spring); }
+.tab > svg { filter: drop-shadow(0 0 2.5px var(--glass-halo)); }
+.tab:active > svg, .tab:active .tab-avatar { scale: .88; }
 .tab-avatar { display: grid; place-items: center; border-radius: 50%; background: var(--button-bg); color: var(--button-ink); font-size: 11px; font-weight: 700; }
 .tab-label { max-width: 100%; overflow: hidden; font-size: 10px; line-height: 1.2; font-weight: 500; letter-spacing: -.01em; white-space: nowrap; text-overflow: ellipsis; }
 .tab[aria-current='page'] .tab-label { font-weight: 650; }
+/* Pressing swells the pane a little and pushes the lens in, like a soft surface under a finger. */
+.tabbar:has(.tab:active) { scale: 1.015; }
+.tabbar:has(.tab:active) .tabglint { opacity: 1; }
+.tabbar:has(.tab[aria-current='page']:active) .tablens { scale: .95; }
+.tab:not([aria-current='page']):active::before { opacity: 1; scale: .96; }
 @media (hover: hover) and (pointer: fine) {
   .tab:not([aria-current='page']):hover { color: var(--ink); }
+  .tab:not([aria-current='page']):hover::before { opacity: .6; scale: 1; }
+  .tabbar:hover .tabglint { opacity: 1; }
 }
+@media (prefers-reduced-motion: reduce) {
+  .tabglint { display: none; }
+}
+/* Without transparency, a plain opaque bar keeps the labels readable. */
 @media (prefers-reduced-transparency: reduce) {
-  .tabbar { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .tabbar::before, .refraction .tabbar::before { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .glass-rim, .tabglint { display: none; }
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .tabbar { background: var(--card); }
+  .tabbar::before { background: var(--card); }
+  .glass-rim { display: none; }
 }
 
 /* Parsha heading */
@@ -797,6 +902,9 @@ footer .warn { color: var(--warning); }
 .settings-view .setting-row select { max-width: 52%; min-width: 0; min-height: 48px; padding: 8px 0 8px 8px; border: 0; background: transparent; color: var(--muted); font-family: inherit; font-size: 1rem; font-weight: 400; text-align: right; cursor: pointer; }
 .settings-view .setting-row select option { background: var(--settings-card); color: var(--ink); }
 .settings-view .setting-row input { width: 52%; min-width: 0; min-height: 48px; padding: 8px 0 8px 8px; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-family: inherit; font-size: 1rem; text-align: right; }
+.settings-view .setting-row.glass-setting { flex-direction: column; align-items: stretch; gap: 0; padding-top: 12px; padding-bottom: 6px; }
+.glass-slider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
+.settings-view .setting-row input[type='range'] { flex: 1; width: auto; padding: 0; accent-color: var(--settings-tint); cursor: pointer; }
 .settings-view .setting-row input::placeholder { color: var(--muted); }
 .appearance-group { padding: 12px; }
 .theme-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; padding: 3px; border-radius: 9px; background: var(--settings-segment); }

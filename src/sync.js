@@ -1,5 +1,7 @@
-import { hasPending, pendingValues } from './storage.js';
+import { hasPending, pendingValues, SETTING_KEYS } from './storage.js';
 import { ALIYAH_FIELDS, readingPatch } from './readings.js';
+
+const settingColumn = key => key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 
 // The adapter receives its client so sync remains independent of browser/auth setup.
 export function createCloudAdapter(client) {
@@ -17,14 +19,14 @@ export function createCloudAdapter(client) {
   return {
     async pull(userId) {
       const [{ data: profile, error }, rows] = await Promise.all([
-        client.from('profiles').select('israel, commentary').eq('id', userId).maybeSingle(),
+        client.from('profiles').select(SETTING_KEYS.map(settingColumn).join(', ')).eq('id', userId).maybeSingle(),
         pullAllProgress(userId),
       ]);
       if (error) throw error;
       const progress = Object.fromEntries(rows.map(row => [
         `${row.year}:${row.parsha_id}`, readingPatch(row),
       ]));
-      return { progress, profile };
+      return { progress, profile: profile && Object.fromEntries(SETTING_KEYS.map(key => [key, profile[settingColumn(key)]])) };
     },
     async writeProgress(userId, key, patch) {
       const sep = key.indexOf(':');
@@ -36,7 +38,8 @@ export function createCloudAdapter(client) {
       if (error) throw error;
     },
     async writeProfile(userId, patch) {
-      const { error } = await client.from('profiles').upsert({ id: userId, ...patch }, { onConflict: 'id' });
+      const columns = Object.fromEntries(Object.entries(patch).map(([key, value]) => [settingColumn(key), value]));
+      const { error } = await client.from('profiles').upsert({ id: userId, ...columns }, { onConflict: 'id' });
       if (error) throw error;
     },
     async clear(userId) {
