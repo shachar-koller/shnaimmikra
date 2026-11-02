@@ -32,7 +32,7 @@ test('custom peirush persists, keeps checkmarks, and appears in exports', async 
   await expect(page.getByLabel('Peirush', { exact: true })).toHaveValue('Rashi');
   await expect(page.locator('.settings-section h3')).toHaveCount(0);
   await page.getByLabel('Peirush', { exact: true }).fill('Ramban');
-  await page.locator('#save-settings').click();
+  await page.locator('#tracker').click();
   await expect(page.locator('#commentary-rashi')).toHaveText('Ramban');
   await page.reload();
   await page.locator('#commentary-rashi').click();
@@ -56,14 +56,14 @@ test('custom peirush persists, keeps checkmarks, and appears in exports', async 
 test('peirush names render as text and blank names fall back to Rashi', async ({ page }) => {
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('<img src=x onerror=alert(1)>');
-  await page.keyboard.press('Escape');
+  await page.locator('#tracker').click();
   await expect(page.locator('#commentary-rashi')).toHaveText('<img src=x onerror=alert(1)>');
   await page.locator('#commentary-rashi').click();
   await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('<img src=x onerror=alert(1)>');
   await expect(page.locator('#reading img')).toHaveCount(0);
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('   ');
-  await page.locator('#save-settings').click();
+  await page.locator('#tracker').click();
   await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Rashi');
   await page.reload();
   await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Rashi');
@@ -84,7 +84,7 @@ test('a crafted peirush name cannot inject markup through the parsha list', asyn
 test('a past cycle is labeled as past, without this week or a current parsha', async ({ page }) => {
   await page.locator('#settings').click();
   await page.locator('#cyear').selectOption('5786');
-  await page.locator('#save-settings').click();
+  await page.locator('#tracker').click();
   const summary = page.locator('.card.shabbos');
   await expect(summary.locator('h2')).toHaveText('Past cycle');
   await expect(summary.locator('.shabbos-count')).toHaveText('5786–87');
@@ -99,7 +99,7 @@ test('a past cycle is labeled as past, without this week or a current parsha', a
 test('a future cycle says when it begins', async ({ page }) => {
   await page.locator('#settings').click();
   await page.locator('#cyear').selectOption('5788');
-  await page.locator('#save-settings').click();
+  await page.locator('#tracker').click();
   const summary = page.locator('.card.shabbos');
   await expect(summary.locator('h2')).toHaveText('Future cycle');
   await expect(summary.locator('.shabbos-date')).toHaveText(/^Begins .* 2027$/);
@@ -123,8 +123,6 @@ test('all themes apply immediately, persist, and keep progress', async ({ page }
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await expect(page.locator('body')).toHaveCSS('background-color', background);
     await expect(page.locator(`[data-theme-choice="${theme}"]`)).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeFocused();
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, key)).toEqual(seed.progress);
@@ -165,19 +163,15 @@ test('reset can be cancelled and clears every cycle while preserving settings', 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'forest-dark');
 });
 
-test('settings fits a small screen, scrolls, and traps keyboard focus', async ({ page }) => {
+test('settings fits a small screen and every control can scroll clear of the tab bar', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.locator('#settings').click();
-  await expect(page.locator('#save-settings')).toBeFocused();
-  await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
-  await page.keyboard.press('Shift+Tab');
-  await expect(page.locator('#save-settings')).toBeFocused();
-  expect(await page.locator('.dialog').evaluate(el => ({
-    fits: el.getBoundingClientRect().left >= 0 && el.getBoundingClientRect().right <= innerWidth,
-    scrolls: el.querySelector('.settings-body').scrollHeight > el.querySelector('.settings-body').clientHeight,
-    overflows: el.scrollWidth > el.clientWidth,
-  }))).toEqual({ fits: true, scrolls: true, overflows: false });
+  await expect(page.locator('#settings')).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const last = await page.locator('#delete-progress').boundingBox();
+  const bar = await page.locator('.tabbar').boundingBox();
+  expect(last.y + last.height).toBeLessThanOrEqual(bar.y);
 });
 
 
@@ -249,7 +243,7 @@ test('failed cloud reset preserves local progress and shows a retryable error', 
 test('sign out succeeds locally when the server cannot be reached', async ({ page }) => {
   await mockAccount(page);
   await page.route('**/auth/v1/logout*', route => route.abort());
-  await page.locator('#settings').click();
+  await page.locator('#account').click();
   await page.locator('#settings-signout').click();
   await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible();
   await expect(page.locator('#announcement')).toContainText('Signed out');
@@ -260,7 +254,7 @@ test('a stalled sync request times out instead of blocking sign out, and keeps t
   await mockAccount(page);
   await page.route('**/rest/v1/**', () => { /* Never answer. */ });
   await page.locator('[data-reading="mikra1"]').click();
-  await page.locator('#settings').click();
+  await page.locator('#account').click();
   await page.locator('#settings-signout').click();
   await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible({ timeout: 25000 });
   await expect(page.locator('#announcement')).toContainText('Signed out');
@@ -272,7 +266,7 @@ test('a stalled sync request times out instead of blocking sign out, and keeps t
 test('sign out flushes progress, ends only this session, and separates account data', async ({ page }) => {
   const cloud = await mockAccount(page);
   await page.locator('[data-reading="mikra1"]').click();
-  await page.locator('#settings').click();
+  await page.locator('#account').click();
   await page.locator('#settings-signout').click();
   await expect(page.getByRole('heading', { name: 'Shnayim Mikra', exact: true })).toBeVisible();
   await expect(page.locator('#announcement')).toContainText('Signed out');

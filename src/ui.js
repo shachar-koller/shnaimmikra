@@ -15,7 +15,7 @@ import { SEFARIM, seferOf, fixName, titleName, heroName, hebrewName } from './na
 import { peirushName, progressText } from './progress.js';
 import { ALIYAH_NAMES, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
 import { morph } from './morph.js';
-import { slideIn, pop, haptic, celebrate, reducedMotion } from './motion.js';
+import { slideIn, pop, squish, haptic, celebrate, reducedMotion } from './motion.js';
 
 const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -56,6 +56,7 @@ let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/w
 const expandedReadings = new Map();
 const commentaryViews = new Map();
 let completedFeedback = null, bulkReading = null;
+let tab = 'tracker', trackerScroll = 0;
 const viewKey = id => `${user?.id || 'guest'}:${year}:${id}`;
 const cycleLabel = cycle => `${cycle}–${String(cycle + 1).slice(2)}`;
 const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Onkelos', rashi: peirushName(data.peirushName) }[reading]);
@@ -88,7 +89,13 @@ const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 // Always in the DOM so that checking and unchecking can both animate.
 const tick = '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path pathLength="1" d="m5 12 5 5 9-10"/></svg>';
 const chevron = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>';
-const slidersIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg>';
+const tabIcon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const TABS = [
+  { id: 'tracker', label: 'Tracker', icon: tabIcon('<circle cx="12" cy="12" r="8.5"/><path d="m8.2 12.2 2.6 2.6 5-5.4"/>') },
+  { id: 'chumash', label: 'Chumash', icon: tabIcon('<path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.7 2-1.5 4.8-2 8.5-1.7V4.8C16.8 4.5 14 5 12 6.5Zm0 0v13.4"/>') },
+  { id: 'settings', label: 'Settings', icon: tabIcon('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/>') },
+  { id: 'account', label: 'Account', icon: tabIcon('<circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20c.8-3.8 3.6-5.8 7.2-5.8s6.4 2 7.2 5.8"/>') },
+];
 
 
 const all = () => schedule(year, data.israel);
@@ -108,7 +115,7 @@ function announce(msg) {
 }
 
 function refreshUnlessDialogOpen() {
-  if (document.querySelector('#dialog-root .dialog')) return;
+  if (document.querySelector('#dialog-root .dialog, main[aria-busy="true"]')) return;
   const focused = document.activeElement;
   const selector = focused?.id ? `#${CSS.escape(focused.id)}`
     : ['reading', 'parsha', 'seferTab'].map(key => focused?.dataset[key] !== undefined
@@ -162,6 +169,10 @@ function render() {
     return;
   }
   const rows = all();
+  if (tab !== 'tracker') {
+    renderPanel(rows);
+    return;
+  }
   const thisCycle = cycleYear(new Date(), data.israel);
   const inThisCycle = year === thisCycle;
   const weekly = currentParsha(rows);
@@ -185,10 +196,6 @@ function render() {
   const viewSefer = activeSefer !== null ? activeSefer : itemSefer;
   const seferRows = rows.filter(r => seferOf(r.id) === viewSefer);
   const seferDone = seferRows.filter(r => complete(state(r.id))).length;
-  const authLabel = user ? `Account, ${user.email || 'signed in'}` : 'Sign in to sync across devices';
-  const accountBtn = user
-    ? `<button class="avatarbtn" id="account" aria-label="${escapeHtml(authLabel)}" title="${escapeHtml(user.email || '')}">${avatarInitial()}</button>`
-    : `<button class="signinbtn" id="account">Sign in with Google</button>`;
 
   const upcomingShabbos = localShabbosDate(weekly.date);
   // "This week" and a countdown only mean something inside the cycle happening now.
@@ -201,17 +208,8 @@ function render() {
   const counters = ['.weeklyprogress .progressvalue', '.yearprogress .progressvalue', '.cyccount'];
   const previousCounts = counters.map(selector => document.querySelector(selector)?.textContent);
 
-  morph(document.querySelector('#app'), `
-  <a class="skip" href="#reading">Skip to progress</a>
-  <div class="page">
-    <header class="topbar">
-      <span class="brand">Shnayim Mikra</span>
-      <span class="topright">
-        <button class="iconbtn" id="settings" aria-label="Settings">${slidersIcon}</button>
-        ${accountBtn}
-      </span>
-    </header>
-    <main>
+  morph(document.querySelector('#app'), shell('#reading', 'Skip to progress', `
+    <main data-key="tracker">
       <header class="titlerow" data-key="titlerow">
         <h1>${heroName(item.names)}</h1>
         <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
@@ -309,10 +307,7 @@ function render() {
       </section>
 
       ${storageOK ? '' : '<footer><span class="warn">Progress could not be saved. Check browser storage.</span></footer>'}
-    </main>
-  </div>
-  <div id="dialog-root"></div>
-  <div class="sr-only" aria-live="polite" id="announcement"></div>`);
+    </main>`));
 
   counters.forEach((selector, index) => {
     const counter = document.querySelector(selector);
@@ -327,7 +322,82 @@ function render() {
   }
 }
 
+// The bar stays in one place in the markup, so its lens can slide between tabs.
+function shell(skipTarget, skipLabel, content) {
+  return `
+  <a class="skip" href="${skipTarget}">${skipLabel}</a>
+  <div class="page">
+    <header class="topbar"><span class="brand">Shnayim Mikra</span></header>
+    ${content}
+  </div>
+  ${tabBar()}
+  <div id="dialog-root"></div>
+  <div class="sr-only" aria-live="polite" id="announcement"></div>`;
+}
+
+function tabBar() {
+  const active = TABS.findIndex(({ id }) => id === tab);
+  return `<nav class="tabbar" aria-label="Main" style="--active:${active}">
+    <span class="tablens" aria-hidden="true"></span>
+    ${TABS.map(({ id, label, icon }) => {
+      const signedIn = id === 'account' && user;
+      const name = signedIn ? ` aria-label="${escapeHtml(`Account, ${user.email || 'signed in'}`)}"` : '';
+      const glyph = signedIn ? `<span class="tab-avatar" aria-hidden="true">${escapeHtml(avatarInitial())}</span>` : icon;
+      return `<button type="button" class="tab" id="${id}" data-tab="${id}"${name}${id === tab ? ' aria-current="page"' : ''}>${glyph}<span class="tab-label">${label}</span></button>`;
+    }).join('')}
+  </nav>`;
+}
+
+function wireTabs() {
+  document.querySelectorAll('[data-tab]').forEach(button => button.onclick = () => setTab(button.dataset.tab));
+}
+
+function setTab(next) {
+  if (document.querySelector('main[aria-busy="true"]')) return;
+  if (next === tab) {
+    window.scrollTo({ top: 0, behavior: reducedMotion() ? 'instant' : 'smooth' });
+    return;
+  }
+  const order = id => TABS.findIndex(entry => entry.id === id);
+  const direction = Math.sign(order(next) - order(tab));
+  if (tab === 'tracker') trackerScroll = window.scrollY;
+  document.querySelector('#settings-status')?.replaceChildren();
+  tab = next;
+  render();
+  document.getElementById(next).focus({ preventScroll: true });
+  window.scrollTo({ top: next === 'tracker' ? trackerScroll : 0, behavior: 'instant' });
+  slideIn([document.querySelector('main')], direction);
+  squish(document.querySelector('.tablens'));
+  announce(`${TABS[order(next)].label} tab`);
+}
+
+function renderPanel(rows) {
+  const status = document.querySelector('#settings-status')?.textContent;
+  const content = { chumash: () => chumashPanel(rows), settings: settingsPanel, account: accountPanel }[tab]();
+  morph(document.querySelector('#app'), shell(`#panel-${tab}`, 'Skip to content', `<main id="panel-${tab}" class="settings-view">${content}</main>`));
+  wireTabs();
+  if (tab === 'settings') wireSettings();
+  if (tab === 'account') wireAccount();
+  const statusLine = document.querySelector('#settings-status');
+  // A background sync re-renders the page; a message about the last action outlives it.
+  if (status && statusLine) statusLine.textContent = status;
+  updateSyncStatus();
+}
+
+function chumashPanel(rows) {
+  const item = rows.find(row => row.id === chosen) || currentParsha(rows);
+  return `<header class="titlerow">
+      <h1>${heroName(item.names)}</h1>
+      <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
+    </header>
+    <section class="card chumash-empty" aria-label="Chumash">
+      <h2>Chumash text is coming soon</h2>
+      <p>This tab will show the parsha you have selected in the tracker.</p>
+    </section>`;
+}
+
 function wire(rows, item) {
+  wireTabs();
   const order = id => rows.findIndex(row => row.id === id);
   document.querySelectorAll('[data-sefer-tab]').forEach(b => b.onclick = () => {
     const previous = activeSefer ?? seferOf(item.id);
@@ -425,9 +495,6 @@ function wire(rows, item) {
     announce(`Using ${readingLabel(reading)}. Saved commentary progress preserved.`);
   });
 
-  document.querySelector('#settings').onclick = settings;
-  const account = document.querySelector('#account');
-  if (account) account.onclick = authDialog;
 }
 
 function setCommentaryView(id, reading) {
@@ -436,13 +503,9 @@ function setCommentaryView(id, reading) {
   try { sessionStorage.setItem(`commentary-view:${key}`, reading); } catch { /* Optional view preference. */ }
 }
 
-function avatarInitialInner() {
+function avatarInitial() {
   const src = user?.email || user?.user_metadata?.name || '•';
   return String(src).trim().charAt(0).toUpperCase() || '•';
-}
-
-function avatarInitial() {
-  return `<span aria-hidden="true">${escapeHtml(avatarInitialInner())}</span>`;
 }
 
 function authDialog() {
@@ -451,10 +514,6 @@ function authDialog() {
       <p class="dialog-note">Sign-in is unavailable. Your progress is saved on this device.</p>
       <button class="primary" id="auth-close">Done</button>`, 'Sign in');
     document.querySelector('#auth-close').onclick = () => closeModal();
-    return;
-  }
-  if (user) {
-    settings();
     return;
   }
   modal(`<h2>Keep your progress with you</h2>
@@ -525,7 +584,7 @@ function renderWelcome() {
     chooseGuest(true);
     signInError = false;
     render();
-    document.querySelector('#account')?.focus({ preventScroll: true });
+    document.querySelector('#tracker')?.focus({ preventScroll: true });
   };
 }
 
@@ -538,17 +597,7 @@ function dialogExit() {
   copy.className = 'dialog-exit';
   copy.setAttribute('aria-hidden', 'true');
   copy.inert = true;
-  // Cloning does not carry over a select's current choice.
-  const selects = root.querySelectorAll('select');
-  copy.querySelectorAll('select').forEach((select, index) => { select.value = selects[index].value; });
   copy.querySelectorAll('[id], [role]').forEach(element => { element.removeAttribute('id'); element.removeAttribute('role'); });
-  // Keep the copy's fields from being associated with their labels.
-  copy.querySelectorAll('label').forEach(label => {
-    const row = document.createElement('div');
-    row.className = label.className;
-    row.append(...label.childNodes);
-    label.replaceWith(row);
-  });
   copy.querySelector('.dialog').classList.replace('dialog', 'dialog-leaving');
   document.body.append(copy);
   setTimeout(() => copy.remove(), 200);
@@ -569,7 +618,6 @@ function modal(html, label = 'Dialog') {
     events.abort();
     if (!instant) dialogExit();
     document.querySelector('#dialog-root').innerHTML = '';
-    if (label === 'Settings') render();
     if (prev?.isConnected) prev.focus({ preventScroll: true });
     else document.querySelector('#settings')?.focus({ preventScroll: true });
   };
@@ -589,9 +637,9 @@ function modal(html, label = 'Dialog') {
   if (first) first.focus({ preventScroll: true });
 }
 
-function settings() {
+function settingsPanel() {
   const baseYear = cycleYear(new Date(), data.israel);
-  modal(`<div class="settings-header"><h2>Settings</h2></div>
+  return `<header class="titlerow"><h1>Settings</h1></header>
     <div class="settings-body">
     <section class="settings-section" aria-label="Appearance">
     <div class="settings-group appearance-group">
@@ -606,10 +654,10 @@ function settings() {
       <input id="peirush-name" type="text" maxlength="80" placeholder="Rashi" autocomplete="off" dir="auto">
     </label>
     <label class="setting-row">Parsha calendar
-      <select id="location"><option value="false" ${!data.israel ? 'selected' : ''}>Diaspora</option><option value="true" ${data.israel ? 'selected' : ''}>Israel</option></select>
+      <select id="location"><option value="false">Diaspora</option><option value="true">Israel</option></select>
     </label>
     <label class="setting-row">Cycle
-      <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option ${y === year ? 'selected' : ''} value="${y}">${cycleLabel(y)}</option>`).join('')}</select>
+      <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option value="${y}">${cycleLabel(y)}</option>`).join('')}</select>
     </label>
     </div>
     </section>
@@ -619,21 +667,16 @@ function settings() {
     <button class="settings-action" id="backup-progress">Download JSON backup</button>
     <button class="settings-action" id="restore-progress">Restore JSON backup</button>
     <input type="file" id="backup-file" accept=".json,application/json" hidden>
-    ${user ? '<button class="settings-action" id="import-guest">Import guest progress</button>' : ''}
     <button class="settings-action danger" id="delete-progress">Delete all progress</button>
     </div>
     </section>
-    <section class="settings-section" aria-label="Account">
-    ${user ? '<div class="settings-group"><div class="settings-account-row"><span class="settings-avatar" aria-hidden="true"></span><div><span class="settings-email"></span><span class="settings-account-caption">Signed in</span></div></div><button class="settings-action danger" id="settings-signout">Sign out</button></div>' : cloudEnabled ? '<div class="settings-group"><button class="settings-action" id="settings-signin">Sign in with Google <span class="settings-chevron" aria-hidden="true">›</span></button></div>' : ''}
-    </section>
-    <p class="dialog-note" id="sync-status" role="status"></p>
-    ${user ? '<button class="settings-action" id="retry-sync">Sync now</button>' : ''}
     <p class="dialog-note" id="settings-status" role="status" aria-live="polite"></p>
-    </div>
-    <button class="primary settings-done" id="save-settings">Done</button>`, 'Settings');
-  document.querySelector('.dialog').classList.add('settings-dialog');
+    </div>`;
+}
+
+function wireSettings() {
   const peirushInput = document.querySelector('#peirush-name');
-  peirushInput.value = peirushName(data.peirushName);
+  if (document.activeElement !== peirushInput) peirushInput.value = peirushName(data.peirushName);
   peirushInput.oninput = () => {
     const name = peirushName(peirushInput.value);
     if (name === 'Rashi') delete data.peirushName;
@@ -641,10 +684,6 @@ function settings() {
     save();
     document.querySelector('#settings-status').textContent = storageOK ? '' : 'Peirush changed, but browser storage could not save it.';
   };
-  if (user) {
-    document.querySelector('.settings-email').textContent = user.email || user.id;
-    document.querySelector('.settings-avatar').textContent = avatarInitialInner();
-  }
   document.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
     data.theme = button.dataset.themeChoice;
     applyTheme(); save();
@@ -657,8 +696,12 @@ function settings() {
     chosen = null; activeSefer = null;
     save();
   };
-  document.querySelector('#location').onchange = updateReadingSettings;
-  document.querySelector('#cyear').onchange = updateReadingSettings;
+  const location = document.querySelector('#location'), cycle = document.querySelector('#cyear');
+  // Set directly: a re-render can't update a select the user has already changed.
+  location.value = String(data.israel);
+  cycle.value = String(year);
+  location.onchange = updateReadingSettings;
+  cycle.onchange = updateReadingSettings;
   document.querySelector('#export-progress').onclick = () => exportProgress();
   document.querySelector('#backup-progress').onclick = () => exportProgress(true);
   document.querySelector('#restore-progress').onclick = () => document.querySelector('#backup-file').click();
@@ -674,30 +717,46 @@ function settings() {
     } catch (error) { const status = document.querySelector('#settings-status'); if (status) status.textContent = error.message; }
     finally { event.target.value = ''; }
   };
-  document.querySelector('#import-guest')?.addEventListener('click', () => {
+  document.querySelector('#delete-progress').onclick = confirmDeleteProgress;
+}
+
+function accountPanel() {
+  const identity = user
+    ? `<div class="settings-group"><div class="settings-account-row"><span class="settings-avatar" aria-hidden="true">${escapeHtml(avatarInitial())}</span><div><span class="settings-email">${escapeHtml(user.email || user.id)}</span><span class="settings-account-caption">Signed in</span></div></div><button class="settings-action" id="retry-sync">Sync now</button><button class="settings-action" id="import-guest">Import guest progress</button><button class="settings-action danger" id="settings-signout">Sign out</button></div>`
+    : cloudEnabled
+      ? '<div class="settings-group"><button class="settings-action" id="settings-signin">Sign in with Google <span class="settings-chevron" aria-hidden="true">›</span></button></div>'
+      : '<p class="dialog-note">Sign-in is unavailable.</p>';
+  return `<header class="titlerow"><h1>Account</h1></header>
+    <div class="settings-body">
+    <section class="settings-section" aria-label="Account">${identity}</section>
+    <p class="dialog-note" id="sync-status" role="status"></p>
+    <p class="dialog-note" id="settings-status" role="status" aria-live="polite"></p>
+    </div>`;
+}
+
+function wireAccount() {
+  const on = (selector, handler) => {
+    const control = document.querySelector(selector);
+    if (control) control.onclick = handler;
+  };
+  on('#import-guest', () => {
     try { previewImport(session.guestData(), false); }
     catch { document.querySelector('#settings-status').textContent = 'Guest progress could not be read.'; }
   });
-  document.querySelector('#retry-sync')?.addEventListener('click', () => runSettingsAction('Syncing…', async () => {
+  on('#retry-sync', () => runSettingsAction('Syncing…', async () => {
     await session.refresh();
     document.querySelector('#settings-status').textContent = 'Progress synced.';
   }, 'Could not sync. Pending changes remain on this device.'));
-  updateSyncStatus();
-  document.querySelector('#delete-progress').onclick = confirmDeleteProgress;
-  document.querySelector('#settings-signin')?.addEventListener('click', authDialog);
-  document.querySelector('#settings-signout')?.addEventListener('click', () => runSettingsAction('Signing out…', async () => {
+  on('#settings-signin', authDialog);
+  on('#settings-signout', () => runSettingsAction('Signing out…', async () => {
     await session.logout();
-    document.querySelector('.dialog')?.removeAttribute('aria-busy');
-    closeModal(); render(); document.querySelector('#auth-google:not([hidden]), #continue-guest')?.focus({ preventScroll: true });
+    render(); document.querySelector('#auth-google:not([hidden]), #continue-guest')?.focus({ preventScroll: true });
     announce('Signed out. Account progress stays separate on this device.');
   }, 'Could not sign out. Please try again.'));
-  document.querySelector('#save-settings').onclick = () => {
-    closeModal();
-  };
 }
 
 async function runSettingsAction(message, action, failure) {
-  const box = document.querySelector('.dialog');
+  const box = document.querySelector('.dialog') || document.querySelector('main');
   const status = box.querySelector('#settings-status') || box.querySelector('[role="status"]');
   const controls = [...box.querySelectorAll('button, select, input')];
   box.setAttribute('aria-busy', 'true');
@@ -742,12 +801,12 @@ function previewImport(imported, settingsIncluded) {
     <p class="dialog-note" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-import">Cancel</button><button class="primary" id="confirm-import">Confirm import</button></div>`, 'Import progress');
   document.querySelector('#cancel-import').focus();
-  document.querySelector('#cancel-import').onclick = settings;
+  document.querySelector('#cancel-import').onclick = () => closeModal();
   document.querySelector('#confirm-import').onclick = () => runSettingsAction('Importing…', async () => {
     data = session.importData(imported, owner, settingsIncluded);
     applyTheme();
     document.querySelector('.dialog').removeAttribute('aria-busy');
-    closeModal(); render(); settings();
+    closeModal(); render();
     document.querySelector('#settings-status').textContent = 'Progress imported and saved on this device.';
   }, 'Could not import progress. Check browser storage and your account, then try again.');
 }
@@ -768,15 +827,15 @@ function confirmDeleteProgress() {
     <p class="dialog-note" id="delete-status" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-delete">Cancel</button><button class="danger-button" id="confirm-delete">Delete all progress</button></div>`, 'Delete all progress?');
   document.querySelector('#cancel-delete').focus();
-  document.querySelector('#cancel-delete').onclick = settings;
+  document.querySelector('#cancel-delete').onclick = () => closeModal();
   document.querySelector('#confirm-delete').onclick = () => runSettingsAction('Deleting progress…', async () => {
     await session.clear();
     completedFeedback = null;
     ({ data, storageOK } = session.snapshot());
     document.querySelector('.dialog').removeAttribute('aria-busy');
-    closeModal(); render(); settings();
+    closeModal(); render();
     document.querySelector('#settings-status').textContent = 'All progress deleted. Your settings are saved.';
-  }, user ? 'Could not delete all progress yet. A saved deletion request will retry when connected. Check Sync status in Settings.' : 'Could not delete all progress. Check browser storage, then try again.');
+  }, user ? 'Could not delete all progress yet. A saved deletion request will retry when connected. Check sync status in Account.' : 'Could not delete all progress. Check browser storage, then try again.');
 }
 
 session.subscribe((snapshot, { refresh, accountChanged }) => {
@@ -790,6 +849,7 @@ session.subscribe((snapshot, { refresh, accountChanged }) => {
     document.querySelector('.dialog')?.removeAttribute('aria-busy');
     closeModal();
     year = cycleYear(new Date(), data.israel); chosen = null; activeSefer = null;
+    tab = 'tracker'; trackerScroll = 0;
     render();
   } else if (refresh) {
     if (previousCalendar !== data.israel) { year = cycleYear(new Date(), data.israel); chosen = null; activeSefer = null; }

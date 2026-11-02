@@ -135,7 +135,7 @@ test('partial aliyos survive JSON restore and exports describe the actual checks
   await page.locator('#backup-progress').click();
   const backup = await downloaded;
   const path = await backup.path();
-  await page.keyboard.press('Escape');
+  await page.locator('#tracker').click();
   await page.locator('#reading-mikra1').click();
   await page.locator('#reading-mikra1').click();
   await page.locator('#aliyah-mikra1-0').click();
@@ -144,7 +144,7 @@ test('partial aliyos survive JSON restore and exports describe the actual checks
   await expect(page.getByRole('dialog')).toContainText('1 aliyah checked');
   await page.locator('#confirm-import').click();
   await expect(page.locator('#settings-status')).toContainText('imported');
-  await page.keyboard.press('Escape');
+  await page.locator('#tracker').click();
   await expect(page.locator('#expand-mikra1 .reading-count')).toHaveText('2 of 7 aliyos');
   await expect(page.locator('#aliyah-mikra1-0')).toHaveAttribute('aria-checked', 'true');
   await expect(page.locator('#aliyah-mikra1-6')).toHaveAttribute('aria-checked', 'true');
@@ -155,7 +155,7 @@ test('all themes and long custom commentary names fit at 320px with either check
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('A very long custom commentary name to check wrapping on a narrow phone');
-  await page.keyboard.press('Escape');
+  await page.locator('#tracker').click();
   await page.locator('#commentary-rashi').click();
   await page.locator('#expand-mikra1').click();
   await page.locator('#expand-rashi').click();
@@ -164,7 +164,7 @@ test('all themes and long custom commentary names fit at 320px with either check
     for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight']) {
       await page.locator('#settings').click();
       await page.locator(`[data-theme-choice="${theme}"]`).click();
-      await page.keyboard.press('Escape');
+      await page.locator('#tracker').click();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const boxes = await page.locator('#aliyos-mikra1 button').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
       expect(boxes.every(height => height >= 44)).toBe(true);
@@ -234,10 +234,11 @@ test('finishing the third reading celebrates once, and not with reduced motion',
 
 test('closing a dialog leaves no focusable or named copy behind', async ({ page }) => {
   await page.locator('#settings').click();
+  await page.locator('#delete-progress').click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('#save-settings')).toHaveCount(0);
-  await expect(page.locator('#settings')).toBeFocused();
+  await expect(page.locator('#confirm-delete')).toHaveCount(0);
+  await expect(page.locator('#delete-progress')).toBeFocused();
   await expect(page.locator('.dialog-exit')).toHaveCount(0);
 });

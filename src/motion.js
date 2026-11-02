@@ -21,6 +21,15 @@ export function pop(element, scale = 1.14) {
   );
 }
 
+/** The tab lens stretches as it travels, like a droplet. Uses `scale`, so it can't fight the slide's `transform`. */
+export function squish(element) {
+  if (reducedMotion() || !element) return;
+  element.animate(
+    [{ scale: '1 1' }, { scale: '1.22 .86', offset: .35 }, { scale: '.96 1.05', offset: .7 }, { scale: '1 1' }],
+    { duration: 420, easing: EASE_OUT },
+  );
+}
+
 export function haptic(pattern) {
   if (reducedMotion()) return;
   try { navigator.vibrate?.(pattern); } catch { /* Optional device feedback. */ }

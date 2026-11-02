@@ -44,10 +44,10 @@ Two alternative aliyah layouts that were tried and not chosen are kept in
 - New visitors see a welcome screen with **Continue with Google** as the primary action and **Continue without an account** as a secondary option. Returning signed-in users go straight to their tracker; an explicit guest choice is remembered in this browser. Signing out returns to the welcome screen.
 - Guest progress stays in the `shnaim-mikra-v1` browser-storage record.
 - Each account has its own `shnaim-mikra-v2:account:<user-id>` record. Signing out leaves account progress separate from guest progress. Account caches and pending changes stay associated with their original account.
-- Signing in never automatically uploads guest or another account's cache. Use **Settings → Import guest progress** to preview and explicitly add guest checkmarks to the current account.
+- Signing in never automatically uploads guest or another account's cache. Use **Account → Import guest progress** to preview and explicitly add guest checkmarks to the current account.
 - Progress changes and their pending sync operations are saved together before sending. Unchecking is an explicit `false` change, not the absence of a record.
 - Only edited aliyah fields are sent. Changes to different aliyos on different devices are preserved. If two devices edit the same field, the last write received by the server wins. A genuinely pending offline edit can therefore supersede a newer online edit when it reconnects; old cached checkmarks by themselves are never uploaded. Whole-section shortcuts explicitly edit all seven cells.
-- Failed operations survive reloads. Sync retries with backoff, on reconnect, on returning to the app, and every minute while visible. Settings shows the sync state and offers **Sync now**.
+- Failed operations survive reloads. Sync retries with backoff, on reconnect, on returning to the app, and every minute while visible. The Account tab shows the sync state and offers **Sync now**.
 - Reset requests are also durable: once confirmed and saved locally, a failed cloud deletion retries when connected. Stale caches on other devices are replaced on their next refresh. Explicit edits made after a reset request remain pending.
 - Browser storage and Web Locks coordinate tabs on the same origin where available. This is account separation, not encryption against someone with access to your browser profile.
 
@@ -62,7 +62,7 @@ Settings offers the readable text export and a versioned JSON backup. Version 2 
 ## Source layout
 
 - `src/main.js`: startup and service-worker registration.
-- `src/ui.js`: existing dashboard and dialogs.
+- `src/ui.js`: tab bar, tracker dashboard, Settings and Account pages, and dialogs.
 - `src/morph.js`: patches the DOM in place on each render, so CSS transitions can run. Assign listeners with `.onclick`; `addEventListener` would stack up across renders.
 - `src/motion.js`: one-shot animations, including the 3/3 celebration. All of them respect reduced motion.
 - `src/model.js`, `src/names.js`, `src/progress.js`: calendar, display names, completion, and text export.

@@ -10,6 +10,7 @@ test('Google leads the welcome screen; guest choice and progress survive reload'
   await page.locator('[data-reading="mikra1"]').click();
   await page.reload();
   await expect(page.locator('[data-reading="mikra1"]')).toHaveAttribute('aria-checked', 'true');
+  await page.locator('#account').click();
   await page.getByRole('button', { name: 'Sign in with Google', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Sign in', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
