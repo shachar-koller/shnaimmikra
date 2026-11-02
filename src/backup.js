@@ -1,3 +1,4 @@
+import { validPreferences } from './preferences.js';
 import { schedule, complete } from './model.js';
 import { normalizeData, READINGS, ALIYAH_FIELDS, themes } from './storage.js';
 import { hasReadingProgress, readingCount } from './readings.js';
@@ -17,6 +18,7 @@ export function parseBackup(text) {
   const data = backup.data;
   if (!object(data) || !object(data.progress) || typeof data.israel !== 'boolean'
     || !['rashi', 'onkelos'].includes(data.commentary) || !themes.some(theme => theme.id === data.theme)
+    || !validPreferences(data)
     || (data.peirushName !== undefined && (typeof data.peirushName !== 'string' || data.peirushName.length > 80))) {
     throw new Error('The backup contains invalid settings or progress.');
   }

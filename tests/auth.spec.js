@@ -16,14 +16,14 @@ test('Google leads the welcome screen; guest choice and progress survive reload'
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
 });
 
-test('Google button starts OAuth with the app origin as its return URL', async ({ page }) => {
+test('Google button starts OAuth with the app origin as its return URL', async ({ page, baseURL }) => {
   await page.route('**/auth/v1/authorize?**', route => route.fulfill({ body: 'Google redirect' }));
   await page.goto('/');
   const request = page.waitForRequest('**/auth/v1/authorize?**');
   await page.getByRole('button', { name: 'Continue with Google' }).click();
   const url = new URL((await request).url());
   expect(url.searchParams.get('provider')).toBe('google');
-  expect(url.searchParams.get('redirect_to')).toBe('http://127.0.0.1:5175');
+  expect(url.searchParams.get('redirect_to')).toBe(new URL(baseURL).origin);
 });
 
 test('cancelled sign-in shows a retry and still allows guest access', async ({ page }) => {

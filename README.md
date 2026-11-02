@@ -56,9 +56,25 @@ Two alternative aliyah layouts that were tried and not chosen are kept in
 
 Calendar dates use the browser's local date. Israel and Diaspora have separate schedules; Simchas Torah belongs to the cycle ending that day. An open app refreshes after the local date changes.
 
+## Preferences and reminders
+
+Settings includes **Follow device appearance** with separate light and dark themes,
+**Text size** (Standard or Larger), and **Parsha names** (Ashkenazi, Sephardi, or Hebrew).
+Naming applies to tracker and Chumash headings, book tabs, and readable progress exports;
+it does not change saved parsha identities. Completion confetti and vibration can be
+switched off separately, and both respect the device’s reduced motion preference.
+These preferences stay on this device, separately for each account or guest, and are included in JSON backups.
+
+For optional reminders, select weekdays and a local time, then use **Add reminders to calendar**.
+Import the downloaded `.ics` file into a calendar and allow its alerts. It contains a weekly
+recurring event with an alert at the selected time; the calendar delivers reminders even
+when the tracker is closed. The app does not send push notifications. Changing the saved
+schedule does not change an imported event: edit or delete that recurring event in your
+calendar to change or stop reminders. Calendar support for imported alerts varies.
+
 ## Backups
 
-Settings offers the readable text export and a versioned JSON backup. Version 2 JSON includes complete and partial aliyah progress for all locally known cycles, calendar, theme, and the custom commentary label. Only the current aliyah format is supported. Exports exclude authentication tokens, account identifiers, and sync internals.
+Settings offers the readable text export and a versioned JSON backup. Version 2 JSON includes complete and partial aliyah progress for all locally known cycles, calendar, appearance, naming, effects, reminder preferences, and the custom commentary label. Only the current aliyah format is supported. Exports exclude authentication tokens, account identifiers, and sync internals.
 
 **Restore JSON backup** validates the file and shows a preview before importing. Restore adds checkmarks without clearing existing ones and restores the backup's settings. Guest import only adds checkmarks. Both work offline; account imports sync later. If an export cannot reach the cloud, it exports cached progress and pending edits and says so. An empty cache on a new device cannot include cloud-only history while offline.
 
@@ -74,6 +90,8 @@ Settings offers the readable text export and a versioned JSON backup. Version 2 
 - `src/sync.js`: Supabase adapter and serialized retrying synchronization.
 - `src/session.js`: authentication, account switching, and refresh lifecycle.
 - `src/backup.js`: portable backup format, validation, and preview summary.
+- `src/preferences.js`: preference defaults, validation, and automatic appearance.
+- `src/reminders.js`: recurring calendar reminders with local times and alerts.
 
 Existing checks remain available with `npm test` and `npm run test:ui`. There is no CI configuration. Browser checks use Playwright (`npx playwright install chromium` if needed).
 

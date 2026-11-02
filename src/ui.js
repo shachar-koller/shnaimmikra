@@ -9,9 +9,11 @@ import {
   formatGregorianDate,
 } from './model.js';
 import { cloudEnabled, signInWithGoogle, googleNativeEnabled, renderGoogleButton } from './auth.js';
+import { PREFERENCE_KEYS, LIGHT_THEMES, DARK_THEMES, preferences, resolvedTheme } from './preferences.js';
+import { REMINDER_DAYS, reminderCalendar } from './reminders.js';
 import { themes } from './storage.js';
 import { createBackup, parseBackup, backupSummary, MAX_BACKUP_BYTES } from './backup.js';
-import { SEFARIM, seferOf, fixName, titleName, heroName, hebrewName } from './names.js';
+import { sefarimFor, seferOf, fixName as formatName, titleName as formatTitle, heroName as formatHero, hebrewName } from './names.js';
 import { peirushName, progressText } from './progress.js';
 import { ALIYAH_NAMES, COMMENTARIES, chosenCommentary, commentarySwapPatch, otherCommentary, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
 import { morph } from './morph.js';
@@ -38,11 +40,13 @@ function chooseGuest(value) {
 }
 
 function applyTheme() {
-  document.documentElement.dataset.theme = data.theme;
+  const theme = resolvedTheme(data, systemDark.matches);
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.textSize = preferences(data).textSize;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content',
     document.documentElement.dataset.screen === 'welcome'
       ? (systemDark.matches ? '#1e1e1e' : '#f5f5f5')
-      : themes.find(theme => theme.id === data.theme).color);
+      : themes.find(option => option.id === theme).color);
 }
 systemDark.addEventListener('change', applyTheme);
 applyTheme();
@@ -59,6 +63,8 @@ let completedFeedback = null, bulkReading = null;
 let tab = 'tracker', trackerScroll = 0;
 const viewKey = id => `${user?.id || 'guest'}:${year}:${id}`;
 const cycleLabel = cycle => `${cycle}–${String(cycle + 1).slice(2)}`;
+const titleName = names => formatTitle(names, data.naming);
+const heroName = names => formatHero(names, data.naming);
 const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Targum', rashi: peirushName(data.peirushName) }[reading]);
 const pickKey = id => `commentary-pick:${viewKey(id)}`;
 // Covers a parsha switched before anything is checked. Once there are checks, they decide.
@@ -106,7 +112,7 @@ const TABS = [
 const all = () => schedule(year, data.israel);
 const state = id => data.progress[`${year}:${id}`] || {};
 function save() {
-  try { data = session.settings({ israel: data.israel, commentary: data.commentary, theme: data.theme, peirushName: data.peirushName }); }
+  try { data = session.settings({ israel: data.israel, commentary: data.commentary, theme: data.theme, peirushName: data.peirushName, ...Object.fromEntries(PREFERENCE_KEYS.filter(key => Object.hasOwn(data, key)).map(key => [key, data[key]])) }); }
   catch { /* The storage warning stays visible; no unsaved write is sent. */ }
 }
 function setProgress(id, patch) {
@@ -177,6 +183,7 @@ function render() {
     renderWelcome();
     return;
   }
+  const SEFARIM = sefarimFor(data.naming);
   const rows = all();
   if (tab !== 'tracker') {
     renderPanel(rows);
@@ -219,8 +226,8 @@ function render() {
   morph(document.querySelector('#app'), shell('#reading', 'Skip to progress', `
     <main data-key="tracker">
       <header class="titlerow" data-key="titlerow">
-        <h1>${heroName(item.names)}</h1>
-        <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
+        <h1${data.naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${heroName(item.names)}</h1>
+        ${data.naming === 'hebrew' ? '' : `<span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>`}
       </header>
       ${offWeek || !inThisCycle ? `<p class="browsing" data-key="browsing"><span>Shabbos of ${formatGregorianDate(localShabbosDate(item.date), !inThisCycle)}</span>${inThisCycle ? '<button type="button" id="back-to-week" class="text-action">Back to this week</button>' : ''}</p>` : ''}
 
@@ -270,14 +277,14 @@ function render() {
             const isCurrent = i === viewSefer;
             const sRows = rows.filter(r => seferOf(r.id) === i);
             const sDone = sRows.filter(r => complete(state(r.id))).length;
-            return `<button type="button" class="sefertab${isCurrent ? ' active' : ''}" data-sefer-tab="${i}" aria-pressed="${isCurrent}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
+            return `<button type="button" class="sefertab${isCurrent ? ' active' : ''}"${data.naming === 'hebrew' ? ' lang="he"' : ''} data-sefer-tab="${i}" aria-pressed="${isCurrent}" aria-label="${s.en}, ${sDone} of ${sRows.length} completed">
               ${s.en}
             </button>`;
           }).join('')}
         </nav>
 
         <div class="cyclesub">
-          <h2 class="cycname">Sefer ${SEFARIM[viewSefer].en}</h2>
+          <h2 class="cycname"${data.naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${data.naming === 'hebrew' ? 'ספר' : 'Sefer'} ${SEFARIM[viewSefer].en}</h2>
           <span class="cyccount">${seferDone}/${seferRows.length}</span>
         </div>
 
@@ -294,7 +301,7 @@ function render() {
             return `<li>
               <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${escapeHtml(st)}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
                 <span class="parshanum" aria-hidden="true">${i + 1}</span>
-                <span class="parshaen">${titleName(r.names)}</span>
+                <span class="parshaen"${data.naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${titleName(r.names)}</span>
                 <span class="parshastatus">${isCur ? '<span class="current-dot" aria-hidden="true"></span>' : ''}${isPartial ? numSteps ? `${numSteps}/3` : 'In progress' : isCur ? 'Current' : ''}</span>
                 <span class="statusring ${isDone ? 'complete' : isPartial ? 'partial' : 'empty'}" style="--progress:${fraction * 100}%" aria-hidden="true">${isDone ? check : ''}</span>
               </button>
@@ -385,8 +392,8 @@ function renderPanel(rows) {
 function chumashPanel(rows) {
   const item = rows.find(row => row.id === chosen) || currentParsha(rows);
   return `<header class="titlerow">
-      <h1>${heroName(item.names)}</h1>
-      <span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>
+      <h1${data.naming === 'hebrew' ? ' lang="he" dir="rtl"' : ''}>${heroName(item.names)}</h1>
+      ${data.naming === 'hebrew' ? '' : `<span class="he" lang="he" dir="rtl">${hebrewName(item.names)}</span>`}
     </header>
     <section class="card chumash-empty" aria-label="Chumash">
       <h2>Chumash text is coming soon</h2>
@@ -448,11 +455,11 @@ function wire(rows, item) {
     control?.focus({ preventScroll: true });
     if (readingCount(state(item.id), reading) > before.filter(Boolean).length) {
       pop(control?.querySelector('.rcheck'));
-      haptic(6);
+      if (preferences(data).vibration) haptic(6);
     }
     if (completedFeedback) {
-      celebrate(document.querySelector('.parsha-meter'));
-      haptic([12, 50, 24]);
+      if (preferences(data).confetti) celebrate(document.querySelector('.parsha-meter'));
+      if (preferences(data).vibration) haptic([12, 50, 24]);
     }
     announce(`${readingLabel(reading)}, ${readingCount(state(item.id), reading)} of 7 aliyos. ${titleName(item.names)}${complete(state(item.id)) ? ' complete' : `, ${steps(state(item.id))} of 3 complete`}.`);
   }
@@ -629,13 +636,21 @@ function modal(html, label = 'Dialog') {
 
 function settingsPanel() {
   const baseYear = cycleYear(new Date(), data.israel);
+  const prefs = preferences(data);
+  const themeChoices = ids => themes.filter(theme => ids.includes(theme.id)).map(theme => `<option value="${theme.id}">${theme.label}</option>`).join('');
   return `<header class="titlerow"><h1>Settings</h1></header>
     <div class="settings-body">
     <section class="settings-section" aria-label="Appearance">
-    <div class="settings-group appearance-group">
+    <div class="settings-group">
+    <label class="setting-row">Follow device appearance
+      <input id="follow-device" type="checkbox" role="switch" ${prefs.followDevice ? 'checked' : ''}>
+    </label>
+    ${prefs.followDevice ? `<label class="setting-row">Light theme<select id="light-theme">${themeChoices(LIGHT_THEMES)}</select></label>
+    <label class="setting-row">Dark theme<select id="dark-theme">${themeChoices(DARK_THEMES)}</select></label>` : `<div class="appearance-group">
     <div class="theme-options" role="group" aria-label="Theme">
       ${themes.map(theme => `<button type="button" class="theme-option" data-theme-choice="${theme.id}" aria-pressed="${data.theme === theme.id}"><span class="theme-swatch swatch-${theme.id}" aria-hidden="true"></span>${theme.label}</button>`).join('')}
-    </div>
+    </div></div>`}
+    <label class="setting-row">Text size<select id="text-size"><option value="standard">Standard</option><option value="larger">Larger</option></select></label>
     </div>
     </section>
     <section class="settings-section" aria-label="Learning">
@@ -649,10 +664,30 @@ function settingsPanel() {
     <label class="setting-row">Parsha calendar
       <select id="location"><option value="false">Diaspora</option><option value="true">Israel</option></select>
     </label>
+    <label class="setting-row">Parsha names
+      <select id="parsha-naming"><option value="ashkenazi">Ashkenazi</option><option value="sephardi">Sephardi</option><option value="hebrew">Hebrew</option></select>
+    </label>
     <label class="setting-row">Cycle
       <select id="cyear">${[baseYear - 1, baseYear, baseYear + 1].map(y => `<option value="${y}">${cycleLabel(y)}</option>`).join('')}</select>
     </label>
     </div>
+    </section>
+    <section class="settings-section" aria-label="Completion effects">
+    <div class="settings-group">
+    <label class="setting-row">Completion confetti<input id="completion-confetti" type="checkbox" role="switch" ${prefs.confetti ? 'checked' : ''}></label>
+    <label class="setting-row">Vibration<input id="completion-vibration" type="checkbox" role="switch" ${prefs.vibration ? 'checked' : ''}></label>
+    </div>
+    <p class="dialog-note">Effects respect your device’s reduced motion setting. Vibration works on supported devices.</p>
+    </section>
+    <section class="settings-section" aria-label="Reminders">
+    <div class="settings-group">
+    <fieldset class="reminder-days"><legend>Reminder days</legend>
+    <div class="day-options">${REMINDER_DAYS.map(([, label], day) => `<button type="button" class="reminder-day" data-reminder-day="${day}" aria-label="${label}" aria-pressed="${prefs.reminderDays.includes(day)}">${label.slice(0, 2)}</button>`).join('')}</div>
+    </fieldset>
+    <label class="setting-row">Reminder time<input id="reminder-time" type="time" value="${prefs.reminderTime}" required></label>
+    <button class="settings-action" id="download-reminders" ${prefs.reminderDays.length ? '' : 'disabled'}>Add reminders to calendar</button>
+    </div>
+    <p class="dialog-note">Choose days and a local time, then import the downloaded file into your calendar. Allow calendar alerts to receive reminders while this app is closed. To change or stop imported reminders, edit or delete the recurring event in your calendar.</p>
     </section>
     <section class="settings-section" aria-label="Progress">
     <div class="settings-group">
@@ -668,6 +703,44 @@ function settingsPanel() {
 }
 
 function wireSettings() {
+  const prefs = preferences(data);
+  function savePreference(key, value, rerender = false) {
+    data[key] = value;
+    save(); applyTheme();
+    if (rerender) render();
+    document.querySelector('#settings-status').textContent = storageOK ? '' : 'Preference changed, but browser storage could not save it.';
+  }
+  document.querySelector('#follow-device').onchange = event => {
+    savePreference('followDevice', event.target.checked, true);
+    document.querySelector('#follow-device').focus({ preventScroll: true });
+  };
+  for (const [id, key] of [['light-theme', 'lightTheme'], ['dark-theme', 'darkTheme'], ['text-size', 'textSize'], ['parsha-naming', 'naming']]) {
+    const control = document.getElementById(id);
+    if (!control) continue;
+    control.value = prefs[key];
+    control.onchange = () => savePreference(key, control.value);
+  }
+  for (const [id, key] of [['completion-confetti', 'confetti'], ['completion-vibration', 'vibration']]) {
+    document.getElementById(id).onchange = event => savePreference(key, event.target.checked);
+  }
+  document.querySelectorAll('[data-reminder-day]').forEach(button => button.onclick = () => {
+    const days = new Set(preferences(data).reminderDays), day = Number(button.dataset.reminderDay);
+    if (days.has(day)) days.delete(day); else days.add(day);
+    savePreference('reminderDays', [...days].sort());
+    button.setAttribute('aria-pressed', String(days.has(day)));
+    document.querySelector('#download-reminders').disabled = !days.size;
+  });
+  const reminderTime = document.querySelector('#reminder-time');
+  reminderTime.onchange = () => {
+    if (reminderTime.checkValidity()) savePreference('reminderTime', reminderTime.value);
+    else { reminderTime.value = preferences(data).reminderTime; announce('Choose a valid reminder time.'); }
+  };
+  document.querySelector('#download-reminders').onclick = () => {
+    try {
+      download(reminderCalendar(preferences(data), new Date(), location.origin + location.pathname), 'shnayim-mikra-reminders.ics', 'text/calendar;charset=utf-8');
+      document.querySelector('#settings-status').textContent = 'Reminder file ready. Import it into your calendar and allow alerts. Manage imported reminders in your calendar.';
+    } catch (error) { document.querySelector('#settings-status').textContent = error.message; }
+  };
   const peirushInput = document.querySelector('#peirush-name');
   if (document.activeElement !== peirushInput) peirushInput.value = peirushName(data.peirushName);
   peirushInput.oninput = () => {
@@ -786,7 +859,7 @@ function exportProgress(json = false) {
     if ((session.snapshot().user?.id || null) !== owner) throw new Error('Account changed');
     const exported = session.snapshot().data;
     const now = new Date();
-    download(json ? createBackup(exported, now) : progressText(exported, fixName, now),
+    download(json ? createBackup(exported, now) : progressText(exported, id => formatName(id, exported.naming), now),
       `shnayim-mikra-progress-${now.toISOString().slice(0, 10)}.${json ? 'json' : 'txt'}`,
       json ? 'application/json' : 'text/plain;charset=utf-8');
     document.querySelector('#settings-status').textContent = cached
@@ -798,7 +871,7 @@ function previewImport(imported, settingsIncluded) {
   const summary = backupSummary(imported);
   modal(`<h2>${settingsIncluded ? 'Restore backup?' : 'Import guest progress?'}</h2>
     <p class="dialog-note">${summary.parshiyos} ${summary.parshiyos === 1 ? 'parsha' : 'parshiyos'} with progress, ${summary.completed} completed, ${summary.aliyos} ${summary.aliyos === 1 ? 'aliyah' : 'aliyos'} checked. Cycles: ${summary.cycles.join(', ') || 'none'}.</p>
-    <p class="dialog-note">Checked aliyos will be added to ${user ? 'your signed-in account' : 'guest progress on this device'}. Existing checkmarks will stay.${settingsIncluded ? ' Calendar, theme, and commentary settings will be restored.' : ' Guest progress will also remain on this device.'}</p>
+    <p class="dialog-note">Checked aliyos will be added to ${user ? 'your signed-in account' : 'guest progress on this device'}. Existing checkmarks will stay.${settingsIncluded ? ' Learning, appearance, effects, and reminder preferences will be restored. Calendar reminders already imported are managed in your calendar.' : ' Guest progress will also remain on this device.'}</p>
     <p class="dialog-note" role="status"></p>
     <div class="confirm-actions"><button class="secondary" id="cancel-import">Cancel</button><button class="primary" id="confirm-import">Confirm import</button></div>`, 'Import progress');
   document.querySelector('#cancel-import').focus();

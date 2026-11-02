@@ -1,3 +1,4 @@
+import { PREFERENCE_KEYS, normalizePreferences } from './preferences.js';
 import { peirushName } from './progress.js';
 import { READINGS, readingChecks, aliyahField, normalizeProgress, readingPatch, applyReadingPatch } from './readings.js';
 export { READINGS, ALIYAH_FIELDS } from './readings.js';
@@ -27,7 +28,7 @@ export function normalizeData(raw = {}) {
   }
   return {
     progress, israel: raw.israel === true, commentary: raw.commentary === 'rashi' ? 'rashi' : 'onkelos',
-    theme: validTheme(raw.theme), ...(raw.peirushName ? { peirushName: peirushName(raw.peirushName) } : {}),
+    theme: validTheme(raw.theme), ...normalizePreferences(raw), ...(raw.peirushName ? { peirushName: peirushName(raw.peirushName) } : {}),
   };
 }
 const emptyPending = () => ({ progress: {}, profile: {} });
@@ -67,11 +68,11 @@ export function createRepository(storage) {
     }
   }
   function patchSettings(record, userId, patch) {
-    for (const key of ['israel', 'commentary', 'theme', 'peirushName']) {
+    for (const key of ['israel', 'commentary', 'theme', 'peirushName', ...PREFERENCE_KEYS]) {
       if (!Object.hasOwn(patch, key) || patch[key] === record.data[key]) continue;
       if (patch[key] === undefined) delete record.data[key];
       else record.data[key] = patch[key];
-      // Appearance and the custom label are device preferences, included in backups.
+      // Only calendar and commentary sync; other preferences are local and included in backups.
       if (userId && ['israel', 'commentary'].includes(key)) record.pending.profile[key] = operation(patch[key]);
     }
   }

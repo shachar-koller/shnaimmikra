@@ -78,10 +78,14 @@ const ASHKENAZI = {
   "Ha'azinu": "Ha'azinu",
   'Vezot Haberakhah': 'Vezos Habrachah',
 };
-export const fixName = n => ASHKENAZI[n] || n.split('-').map(part => ASHKENAZI[part] || part).join(' ');
-const displayNames = names => names.map(fixName);
-export const titleName = names => displayNames(names).join(' – ');
-export const heroName = names => `Parshas ${names.length > 1 ? displayNames(names).join('–') : fixName(names[0])}`;
 const hebrewParshaName = names => names.map(n => Locale.gettext(n, 'he-x-NoNikud').replaceAll('־', ' ')).join('־');
+export const fixName = (n, naming = 'ashkenazi') => naming === 'hebrew' ? hebrewParshaName([n])
+  : naming === 'sephardi' ? n.replaceAll('-', ' ')
+  : ASHKENAZI[n] || n.split('-').map(part => ASHKENAZI[part] || part).join(' ');
+export const titleName = (names, naming = 'ashkenazi') => names.map(n => fixName(n, naming)).join(' – ');
+export const heroName = (names, naming = 'ashkenazi') => naming === 'hebrew' ? hebrewName(names)
+  : `${naming === 'sephardi' ? 'Parashat' : 'Parshas'} ${names.map(n => fixName(n, naming)).join('–')}`;
 export const hebrewName = names => `פרשת ${hebrewParshaName(names)}`;
-
+export const sefarimFor = (naming = 'ashkenazi') => SEFARIM.map((sefer, index) => ({ ...sefer,
+  en: naming === 'hebrew' ? sefer.he : naming === 'sephardi' ? ['Bereshit', 'Shemot', 'Vayikra', 'Bamidbar', 'Devarim'][index] : sefer.en,
+}));
