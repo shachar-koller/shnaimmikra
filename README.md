@@ -17,16 +17,19 @@ For Google sign-in and account sync, copy `.env.example` to `.env` and follow [S
 
 ## Aliyah tracking
 
-Mikra I, Mikra II, and the commentary are each folded by default. Tapping its row unfolds a checklist of seven
+Mikra I, Mikra II, and Targum are each folded by default. Tapping its row unfolds a checklist of seven
 independently checkable aliyos; progress stays visible while folded. The checkbox on the row is
 separate: from empty or partial it marks all seven complete, and a completed one
 clears all seven. Checking one aliyah does
 not check earlier ones or close the checklist.
 
-The **Commentary** switch moves between Onkelos and your custom peirush without
-erasing either path, and the last one chosen becomes the default for parshiyos
-without progress. All seven aliyos in one commentary are required for it to count; partial paths are not combined. Progress rings use the further-completed
-commentary path. Weekly totals count completed sections, and yearly/sefer totals
+The third row is Targum or your peirush (Rashi unless you rename it), one or the other for each parsha.
+**Settings → After Mikra** picks the default for parshiyos you haven't started. **Switch to … for this parsha**,
+at the bottom of the unfolded checklist, changes just that parsha and carries its checks over. A parsha with
+checks uses whichever one holds them, so the choice syncs with them; a switch made before checking anything
+is remembered on that device. If a parsha ever has both sets, from old data or offline edits on two devices,
+the further-along one shows and counts, and a tie follows your choice for that parsha or the default.
+Weekly totals count completed sections, and yearly/sefer totals
 count completed parshiyos. Partial aliyah progress appears below the weekly total
 and in the parsha list.
 

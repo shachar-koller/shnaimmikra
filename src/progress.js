@@ -1,5 +1,5 @@
 import { complete, schedule } from './model.js';
-import { ALIYAH_NAMES, hasReadingProgress, readingCount, readingChecks } from './readings.js';
+import { ALIYAH_NAMES, chosenCommentary, hasReadingProgress, readingCount, readingChecks } from './readings.js';
 
 export const peirushName = value => typeof value === 'string'
   ? value.replace(/\s+/g, ' ').trim().slice(0, 80) || 'Rashi'
@@ -25,7 +25,9 @@ export function progressText(data, name = id => id, now = new Date()) {
     lines.push('', `Cycle ${year}–${year + 1}`, '--------------------');
     for (const [id, p] of cycle) {
       lines.push('', `${name(id)} — ${complete(p) ? 'Complete' : 'In progress'}`);
-      for (const [key, label] of [['mikra1', 'Mikra I'], ['mikra2', 'Mikra II'], ['rashi', peirushName(data.peirushName)], ['onkelos', 'Targum (Onkelos)']]) {
+      const commentary = chosenCommentary(p, data.commentary);
+      const commentaryLabel = commentary === 'rashi' ? peirushName(data.peirushName) : 'Targum';
+      for (const [key, label] of [['mikra1', 'Mikra I'], ['mikra2', 'Mikra II'], [commentary, commentaryLabel]]) {
         const count = readingCount(p, key);
         lines.push(`  [${count === 7 ? 'x' : ' '}] ${label} — ${count} of 7 aliyos`);
         if (count > 0 && count < 7) readingChecks(p, key).forEach((checked, index) => {

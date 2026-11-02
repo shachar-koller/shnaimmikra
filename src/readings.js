@@ -1,4 +1,5 @@
-export const READINGS = ['mikra1', 'mikra2', 'onkelos', 'rashi'];
+export const COMMENTARIES = ['onkelos', 'rashi'];
+export const READINGS = ['mikra1', 'mikra2', ...COMMENTARIES];
 export const ALIYAH_COUNT = 7;
 export const ALIYAH_NAMES = ['Kohen', 'Levi', 'Shlishi', "Rivi'i", 'Chamishi', 'Shishi', "Shevi'i"];
 export const aliyahField = (reading, index) => `${reading}_${index + 1}`;
@@ -10,6 +11,21 @@ export const readingCount = (progress, reading) => readingChecks(progress, readi
 export const readingComplete = (progress, reading) => readingCount(progress, reading) === ALIYAH_COUNT;
 export const aliyahSteps = progress => readingCount(progress, 'mikra1') + readingCount(progress, 'mikra2')
   + Math.max(readingCount(progress, 'onkelos'), readingCount(progress, 'rashi'));
+// A parsha uses one or the other. Its checks decide, and only an empty or tied
+// parsha follows the fallback, so the choice syncs along with the checks.
+export function chosenCommentary(progress, fallback = 'onkelos') {
+  const onkelos = readingCount(progress, 'onkelos'), rashi = readingCount(progress, 'rashi');
+  return rashi > onkelos ? 'rashi' : onkelos > rashi ? 'onkelos' : fallback;
+}
+export const otherCommentary = commentary => commentary === 'rashi' ? 'onkelos' : 'rashi';
+// Swapping rather than moving keeps a hidden set from an old or conflicting edit,
+// and switching back restores exactly what was there.
+export function commentarySwapPatch(progress, from, to) {
+  const source = readingChecks(progress, from), target = readingChecks(progress, to);
+  return Object.fromEntries(source.flatMap((checked, index) => checked === target[index] ? [] : [
+    [aliyahField(to, index), checked], [aliyahField(from, index), target[index]],
+  ]));
+}
 export const hasReadingProgress = progress => READINGS.some(reading => readingCount(progress, reading) > 0);
 
 export const normalizeProgress = (progress = {}) => Object.fromEntries(

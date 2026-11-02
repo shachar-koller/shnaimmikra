@@ -13,7 +13,7 @@ import { themes } from './storage.js';
 import { createBackup, parseBackup, backupSummary, MAX_BACKUP_BYTES } from './backup.js';
 import { SEFARIM, seferOf, fixName, titleName, heroName, hebrewName } from './names.js';
 import { peirushName, progressText } from './progress.js';
-import { ALIYAH_NAMES, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
+import { ALIYAH_NAMES, COMMENTARIES, chosenCommentary, commentarySwapPatch, otherCommentary, readingChecks, readingCount, readingComplete, aliyahField, aliyahSteps, wholeReadingPatch } from './readings.js';
 import { morph } from './morph.js';
 import { slideIn, pop, squish, haptic, celebrate, reducedMotion } from './motion.js';
 
@@ -54,30 +54,35 @@ let year = cycleYear(new Date(), data.israel);
 let chosen = null;   // selected parsha id, or null = current week
 let activeSefer = null; // selected sefer index (0-4), or null = follow chosen/weekly sefer
 const expandedReadings = new Map();
-const commentaryViews = new Map();
+const commentaryPicks = new Map();
 let completedFeedback = null, bulkReading = null;
 let tab = 'tracker', trackerScroll = 0;
 const viewKey = id => `${user?.id || 'guest'}:${year}:${id}`;
 const cycleLabel = cycle => `${cycle}–${String(cycle + 1).slice(2)}`;
-const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Onkelos', rashi: peirushName(data.peirushName) }[reading]);
-function commentaryView(id, progress) {
-  const key = viewKey(id);
-  if (commentaryViews.has(key)) return commentaryViews.get(key);
+const readingLabel = reading => ({ mikra1: 'Mikra I', mikra2: 'Mikra II', onkelos: 'Targum', rashi: peirushName(data.peirushName) }[reading]);
+const pickKey = id => `commentary-pick:${viewKey(id)}`;
+// Covers a parsha switched before anything is checked. Once there are checks, they decide.
+function pickedCommentary(id) {
   let saved;
-  try { saved = sessionStorage.getItem(`commentary-view:${key}`); } catch { /* Optional view preference. */ }
-  if (['onkelos', 'rashi'].includes(saved)) {
-    commentaryViews.set(key, saved);
-    return saved;
-  }
-  // Re-evaluate the fallback after cloud refresh; an empty first render is not
-  // an explicit preference for a different commentary than the saved progress.
-  const rashi = readingCount(progress, 'rashi'), onkelos = readingCount(progress, 'onkelos');
-  return rashi > onkelos ? 'rashi' : onkelos > rashi ? 'onkelos' : data.commentary;
+  try { saved = localStorage.getItem(pickKey(id)); } catch { /* Falls back to this page's memory. */ }
+  return COMMENTARIES.includes(saved) ? saved : commentaryPicks.get(pickKey(id));
 }
+function pickCommentary(id, commentary) {
+  commentaryPicks.set(pickKey(id), commentary);
+  try { localStorage.setItem(pickKey(id), commentary); } catch { /* Optional; lasts until reload. */ }
+}
+function clearCommentaryPicks() {
+  const prefix = `commentary-pick:${user?.id || 'guest'}:`;
+  for (const key of commentaryPicks.keys()) if (key.startsWith(prefix)) commentaryPicks.delete(key);
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith(prefix)) localStorage.removeItem(key);
+  } catch { /* Nothing was saved. */ }
+}
+const commentaryOf = id => chosenCommentary(state(id), pickedCommentary(id) || data.commentary);
 
-function readingDetail(progress) {
-  const commentary = readingCount(progress, 'rashi') > readingCount(progress, 'onkelos') ? 'rashi' : 'onkelos';
-  const reading = ['mikra1', 'mikra2', commentary].find(key => {
+function readingDetail(id) {
+  const progress = state(id);
+  const reading = ['mikra1', 'mikra2', commentaryOf(id)].find(key => {
     const count = readingCount(progress, key);
     return count > 0 && count < 7;
   });
@@ -132,6 +137,9 @@ function readingRow(reading, item, progress, expanded) {
   const open = expanded.has(reading);
   const name = escapeHtml(titleName(item.names));
   const checks = readingChecks(progress, reading);
+  const switcher = COMMENTARIES.includes(reading)
+    ? `<button type="button" id="switch-commentary" class="text-action switch-commentary">Switch to ${escapeHtml(readingLabel(otherCommentary(reading)))} for this parsha</button>`
+    : '';
   const heading = `<span class="rlabel"><span class="reading-name">${label}</span><span class="reading-meta"><span class="beads" aria-hidden="true">${checks.map((on, index) => `<i class="${on ? 'on' : ''}" style="--i:${index}"></i>`).join('')}</span><span class="reading-count">${status}</span></span></span>`;
   return `<li class="reading-block${open ? ' open' : ''}${count === 7 ? ' complete' : ''}${bulkReading === reading ? ' bulk' : ''}" data-key="block-${reading}">
     <div class="readingstep" data-reading-row="${reading}">
@@ -145,6 +153,7 @@ function readingRow(reading, item, progress, expanded) {
         <ol class="aliyah-list" aria-label="${label} aliyos">
           ${checks.map((on, index) => `<li style="--i:${index}"><button id="aliyah-${reading}-${index}" type="button" class="readrow aliyah-choice${on ? ' on' : ''}" data-aliyah="${reading}:${index}" role="checkbox" aria-checked="${on}" aria-label="${name}, ${label}, ${ALIYAH_NAMES[index]}"><span class="rlabel">${ALIYAH_NAMES[index]}</span><span class="rcheck${on ? ' on' : ''}" aria-hidden="true">${tick}</span></button></li>`).join('')}
         </ol>
+        ${switcher}
       </div>
     </div>
   </li>`;
@@ -182,8 +191,7 @@ function render() {
   const item = rows.find(r => r.id === chosen) || weekly;
   const isDoubleWeek = rows.some(row => row.id !== item.id && row.date.getTime() === item.date.getTime());
   const p = state(item.id);
-  const commentary = commentaryView(item.id, p);
-  const otherCommentary = commentary === 'rashi' ? 'onkelos' : 'rashi';
+  const commentary = commentaryOf(item.id);
   const key = viewKey(item.id);
   // Everything starts folded; only the person reading decides what to open.
   if (!expandedReadings.has(key)) expandedReadings.set(key, new Set());
@@ -224,18 +232,8 @@ function render() {
           <ol class="reads">
             ${readingRow('mikra1', item, p, expanded)}
             ${readingRow('mikra2', item, p, expanded)}
-          </ol>
-          <div class="commentary-heading">
-            <h3 id="commentary-label">Commentary</h3>
-            <div class="commentary-switch" role="group" aria-labelledby="commentary-label" style="--active:${commentary === 'onkelos' ? 0 : 1}">
-              <span class="switch-pill" aria-hidden="true"></span>
-              ${['onkelos', 'rashi'].map(reading => `<button type="button" id="commentary-${reading}" class="switch-option" data-use-commentary="${reading}" aria-pressed="${reading === commentary}">${escapeHtml(readingLabel(reading))}</button>`).join('')}
-            </div>
-          </div>
-          <ol class="reads commentary-reads" aria-label="Commentary">
             ${readingRow(commentary, item, p, expanded)}
           </ol>
-          ${readingCount(p, otherCommentary) ? `<p class="saved-commentary">${escapeHtml(readingLabel(otherCommentary))}: ${readingCount(p, otherCommentary)} of 7 aliyos saved. Either commentary counts once all seven are checked; they don't combine.</p>` : ''}
           <div class="completion-wrap${celebrating ? ' show' : ''}"><p class="completion-feedback" role="status">${celebrating ? `${check}<span>Yasher koach! Parsha complete.</span>` : ''}</p></div>
         </section>
 
@@ -246,7 +244,7 @@ function render() {
               <div class="weeksegments" style="--weekly-steps:${weeklyTotal}" role="img" aria-label="${weeklySteps} of ${weeklyTotal} completed for ${titleName(weeklyNames)}">${Array.from({ length: weeklyTotal }, (_, i) => `<span class="${weeklySteps > i ? 'filled' : ''}"></span>`).join('')}</div>
               <p class="bigsub">${titleName(weeklyNames)}</p>
               ${weeklyRows.map(row => {
-                const detail = readingDetail(state(row.id));
+                const detail = readingDetail(row.id);
                 return detail ? `<p class="weekly-detail">${weeklyRows.length > 1 ? `${titleName(row.names)}: ` : ''}${escapeHtml(detail)}</p>` : '';
               }).join('')}
             </div>` : ''}
@@ -292,7 +290,7 @@ function render() {
             const numSteps = steps(s);
             const fraction = aliyahSteps(s) / 21;
             const isPartial = fraction > 0 && !isDone;
-            const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done, ${readingDetail(s) || 'In progress'}` : 'Not started';
+            const st = isDone ? 'Completed' : isPartial ? `${numSteps} of 3 done, ${readingDetail(r.id) || 'In progress'}` : 'Not started';
             return `<li>
               <button type="button" class="parsharow${isDone ? ' done' : ''}${isCur ? ' current' : ''}${isSel ? ' selected' : ''}" data-parsha="${r.id}" aria-label="${titleName(r.names)}, ${escapeHtml(st)}${isCur ? ', current parsha' : ''}${isSel ? ', selected' : ''}" aria-pressed="${isSel}" ${isCur ? 'aria-current="true"' : ''}>
                 <span class="parshanum" aria-hidden="true">${i + 1}</span>
@@ -441,7 +439,7 @@ function wire(rows, item) {
       announce('Progress could not be saved. Check browser storage.');
       return;
     }
-    if (['rashi', 'onkelos'].includes(reading)) setCommentaryView(item.id, reading);
+    if (COMMENTARIES.includes(reading)) pickCommentary(item.id, reading);
     completedFeedback = !wasComplete && complete(state(item.id)) ? viewKey(item.id) : null;
     bulkReading = bulk ? reading : null;
     render();
@@ -479,28 +477,20 @@ function wire(rows, item) {
     const index = Number(value);
     updateReading(reading, { [aliyahField(reading, index)]: !readingChecks(state(item.id), reading)[index] }, button.id);
   });
-  document.querySelectorAll('[data-use-commentary]').forEach(button => button.onclick = () => {
-    const reading = button.dataset.useCommentary;
-    const current = commentaryView(item.id, state(item.id));
-    if (reading === current) return;
-    setCommentaryView(item.id, reading);
-    // Both paths keep their checks, so switching needs no confirmation.
-    data.commentary = reading;
-    save();
+  const switchCommentary = document.querySelector('#switch-commentary');
+  if (switchCommentary) switchCommentary.onclick = () => {
+    const current = commentaryOf(item.id), next = otherCommentary(current);
+    pickCommentary(item.id, next);
+    if (!setProgress(item.id, commentarySwapPatch(state(item.id), current, next))) {
+      pickCommentary(item.id, current);
+      return;
+    }
     const expanded = expandedReadings.get(viewKey(item.id));
-    if (expanded.delete(current)) expanded.add(reading);
+    if (expanded.delete(current)) expanded.add(next);
     render();
-    button.focus({ preventScroll: true });
-    slideIn([document.querySelector('.commentary-reads')], reading === 'rashi' ? 1 : -1);
-    announce(`Using ${readingLabel(reading)}. Saved commentary progress preserved.`);
-  });
-
-}
-
-function setCommentaryView(id, reading) {
-  const key = viewKey(id);
-  commentaryViews.set(key, reading);
-  try { sessionStorage.setItem(`commentary-view:${key}`, reading); } catch { /* Optional view preference. */ }
+    document.querySelector('#switch-commentary')?.focus({ preventScroll: true });
+    announce(`Using ${readingLabel(next)} for ${titleName(item.names)}.`);
+  };
 }
 
 function avatarInitial() {
@@ -650,6 +640,9 @@ function settingsPanel() {
     </section>
     <section class="settings-section" aria-label="Learning">
     <div class="settings-group">
+    <label class="setting-row">After Mikra
+      <select id="default-commentary"><option value="onkelos">${readingLabel('onkelos')}</option><option value="rashi">${escapeHtml(readingLabel('rashi'))}</option></select>
+    </label>
     <label class="setting-row">Peirush
       <input id="peirush-name" type="text" maxlength="80" placeholder="Rashi" autocomplete="off" dir="auto">
     </label>
@@ -682,6 +675,7 @@ function wireSettings() {
     if (name === 'Rashi') delete data.peirushName;
     else data.peirushName = name;
     save();
+    document.querySelector('#default-commentary option[value="rashi"]').textContent = name;
     document.querySelector('#settings-status').textContent = storageOK ? '' : 'Peirush changed, but browser storage could not save it.';
   };
   document.querySelectorAll('[data-theme-choice]').forEach(button => button.onclick = () => {
@@ -695,6 +689,13 @@ function wireSettings() {
     year = Number(document.querySelector('#cyear').value);
     chosen = null; activeSefer = null;
     save();
+  };
+  const defaultCommentary = document.querySelector('#default-commentary');
+  defaultCommentary.value = data.commentary;
+  defaultCommentary.onchange = () => {
+    data.commentary = defaultCommentary.value;
+    save();
+    document.querySelector('#settings-status').textContent = storageOK ? '' : 'Default changed, but browser storage could not save it.';
   };
   const location = document.querySelector('#location'), cycle = document.querySelector('#cyear');
   // Set directly: a re-render can't update a select the user has already changed.
@@ -830,6 +831,7 @@ function confirmDeleteProgress() {
   document.querySelector('#cancel-delete').onclick = () => closeModal();
   document.querySelector('#confirm-delete').onclick = () => runSettingsAction('Deleting progress…', async () => {
     await session.clear();
+    clearCommentaryPicks();
     completedFeedback = null;
     ({ data, storageOK } = session.snapshot());
     document.querySelector('.dialog').removeAttribute('aria-busy');

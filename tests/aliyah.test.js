@@ -2,7 +2,7 @@ import { checkedReadings } from './fixtures.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { complete, steps } from '../src/model.js';
-import { readingChecks, readingCount, aliyahSteps, applyReadingPatch, wholeReadingPatch } from '../src/readings.js';
+import { readingChecks, readingCount, aliyahSteps, applyReadingPatch, wholeReadingPatch, chosenCommentary, commentarySwapPatch } from '../src/readings.js';
 import { createRepository, storageKey, hasPending, pendingValues } from '../src/storage.js';
 import { createSyncEngine } from '../src/sync.js';
 import { createBackup, parseBackup, backupSummary } from '../src/backup.js';
@@ -23,6 +23,36 @@ test('unchecking one aliyah preserves its six siblings and updates completion', 
   assert.deepEqual(readingChecks(partial, 'mikra1'), [true, true, true, false, true, true, true]);
   assert.equal(complete(applyReadingPatch(partial, { mikra1_4: true })), true);
   assert.equal(readingCount(applyReadingPatch(partial, wholeReadingPatch('mikra1', false)), 'mikra1'), 0);
+});
+
+test('checks choose the commentary; only an empty or tied parsha uses the fallback', () => {
+  assert.equal(chosenCommentary({}), 'onkelos');
+  assert.equal(chosenCommentary({}, 'rashi'), 'rashi');
+  assert.equal(chosenCommentary({ onkelos_1: true }, 'rashi'), 'onkelos');
+  assert.equal(chosenCommentary({ rashi_4: true }, 'onkelos'), 'rashi');
+  assert.equal(chosenCommentary({ onkelos_1: true, rashi_2: true, rashi_3: true }, 'onkelos'), 'rashi');
+  assert.equal(chosenCommentary({ onkelos_1: true, rashi_1: true }, 'rashi'), 'rashi');
+});
+
+test('a commentary swap edits only the fields that differ and reverses cleanly', () => {
+  const progress = { mikra1_1: true, onkelos_1: true, onkelos_2: true, rashi_2: true, rashi_3: true };
+  const patch = commentarySwapPatch(progress, 'onkelos', 'rashi');
+  assert.deepEqual(patch, { rashi_1: true, onkelos_1: false, rashi_3: false, onkelos_3: true });
+  const swapped = applyReadingPatch(progress, patch);
+  assert.deepEqual(swapped, { mikra1_1: true, rashi_1: true, onkelos_2: true, rashi_2: true, onkelos_3: true });
+  assert.deepEqual(applyReadingPatch(swapped, commentarySwapPatch(swapped, 'rashi', 'onkelos')), progress);
+  assert.deepEqual(commentarySwapPatch({}, 'onkelos', 'rashi'), {});
+});
+
+test('the text export lists only the commentary the parsha uses', () => {
+  const data = { commentary: 'onkelos', progress: {
+    '5787:Noach': checkedReadings('mikra1', 'rashi'),
+    '5787:Bereshit': checkedReadings('mikra1'),
+  } };
+  const text = progressText(data);
+  assert.match(text, /\[x\] Rashi/);
+  assert.match(text, /\[ \] Targum/);
+  assert.equal(text.match(/Rashi|Targum/g).length, 2);
 });
 
 test('out-of-order checks persist and mixed commentary never completes the third reading', () => {

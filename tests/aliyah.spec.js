@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mockAccount } from './account-helper.js';
-import { checkedReadings } from './fixtures.js';
+import { checkedReadings, switchCommentary } from './fixtures.js';
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-10-11T12:00:00Z'));
@@ -52,34 +52,63 @@ test('the reading checkbox marks a partial reading complete, then clears it', as
   await expect(page.locator('#undo-status, #undo-reading')).toHaveCount(0);
 });
 
-test('commentary switching preserves both paths and only a full path completes the parsha', async ({ page }) => {
+test('switching carries the checks over, and they count toward completion', async ({ page }) => {
   await page.locator('#reading-mikra1').click();
   await page.locator('#reading-mikra2').click();
-  await page.locator('#commentary-rashi').click();
-  await page.locator('#expand-rashi').click();
-  for (const index of [0, 1, 2]) await page.locator(`#aliyah-rashi-${index}`).click();
-  await expect(page.locator('#reading-onkelos')).toHaveCount(0);
-  await page.locator('#commentary-onkelos').click();
-  // The open checklist follows the switch instead of folding away.
-  await expect(page.locator('#aliyos-onkelos')).toBeVisible();
-  for (const index of [3, 4, 5, 6]) await page.locator(`#aliyah-onkelos-${index}`).click();
-  await expect(page.locator('.saved-commentary')).toContainText('Rashi: 3 of 7 aliyos saved');
-  await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
-  await expect(page.locator('.parsharow.current')).not.toHaveClass(/done/);
-  await page.reload();
-  await expect(page.locator('#commentary-onkelos')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.saved-commentary')).toContainText('Rashi: 3 of 7 aliyos saved');
   await page.locator('#expand-onkelos').click();
   for (const index of [0, 1, 2]) await page.locator(`#aliyah-onkelos-${index}`).click();
+  await switchCommentary(page);
+  // The open checklist follows the switch instead of folding away.
+  await expect(page.locator('#aliyos-rashi')).toBeVisible();
+  await expect(page.locator('#reading-onkelos')).toHaveCount(0);
+  await expect(page.locator('#expand-rashi .reading-count')).toHaveText('3 of 7 aliyos');
+  await expect(page.locator('#aliyah-rashi-2')).toHaveAttribute('aria-checked', 'true');
+  const stored = () => page.evaluate(() => JSON.parse(localStorage.getItem('shnaim-mikra-v1')).progress['5787:Noach']);
+  expect(await stored()).toMatchObject({ rashi_1: true, rashi_2: true, rashi_3: true });
+  expect(await stored()).not.toHaveProperty('onkelos_1');
+
+  await page.reload();
+  await expect(page.locator('#expand-rashi .reading-count')).toHaveText('3 of 7 aliyos');
+  await page.locator('#expand-rashi').click();
+  for (const index of [3, 4, 5, 6]) await page.locator(`#aliyah-rashi-${index}`).click();
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('3 / 3');
   await expect(page.locator('.parsharow.current')).toHaveClass(/done/);
   await expect(page.locator('.completion-feedback')).toContainText('Parsha complete');
-  await expect(page.locator('#aliyos-onkelos')).toBeVisible();
-  await page.locator('#aliyah-onkelos-6').click();
-  await expect(page.locator('.parsharow.current')).not.toHaveClass(/done/);
-  await expect(page.locator('.completion-feedback')).toBeEmpty();
-  await page.locator('#commentary-rashi').click();
-  await expect(page.locator('#aliyah-rashi-0')).toHaveAttribute('aria-checked', 'true');
+
+  // A finished parsha stays finished, and switching back restores it exactly.
+  await switchCommentary(page);
+  await expect(page.locator('#reading-onkelos')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.parsharow.current')).toHaveClass(/done/);
+  expect(await stored()).not.toHaveProperty('rashi_1');
+});
+
+test('with both sets saved, the further-along one shows and a switch keeps the other', async ({ page }) => {
+  await page.evaluate(progress => localStorage.setItem('shnaim-mikra-v1', JSON.stringify({ progress })), {
+    '5787:Noach': { onkelos_1: true, rashi_1: true, rashi_2: true, rashi_3: true },
+  });
+  await page.reload();
+  await expect(page.locator('#expand-rashi .reading-count')).toHaveText('3 of 7 aliyos');
+  await expect(page.locator('#reading-onkelos')).toHaveCount(0);
+  await switchCommentary(page);
+  await expect(page.locator('#expand-onkelos .reading-count')).toHaveText('3 of 7 aliyos');
+  await expect(page.locator('.parsharow.current .parshastatus')).toHaveText('In progress');
+  await switchCommentary(page);
+  await expect(page.locator('#expand-rashi .reading-count')).toHaveText('3 of 7 aliyos');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('shnaim-mikra-v1')).progress['5787:Noach']))
+    .toEqual({ onkelos_1: true, rashi_1: true, rashi_2: true, rashi_3: true });
+});
+
+test('deleting all progress also forgets per-parsha choices', async ({ page }) => {
+  await switchCommentary(page);
+  await expect(page.locator('[data-reading="rashi"]')).toHaveCount(1);
+  await page.locator('#settings').click();
+  await page.locator('#delete-progress').click();
+  await page.locator('#confirm-delete').click();
+  await expect(page.locator('#settings-status')).toContainText('All progress deleted');
+  await page.locator('#tracker').click();
+  await expect(page.locator('[data-reading="onkelos"]')).toHaveCount(1);
+  await page.reload();
+  await expect(page.locator('[data-reading="onkelos"]')).toHaveCount(1);
 });
 
 test('saved complete readings show seven checks and one uncheck updates every total', async ({ page }) => {
@@ -96,15 +125,21 @@ test('saved complete readings show seven checks and one uncheck updates every to
   await page.reload();
   await expect(page.locator('#expand-mikra1 .reading-count')).toHaveText('6 of 7 aliyos');
   await expect(page.locator('#reading-onkelos')).toHaveAttribute('aria-checked', 'true');
-  await page.locator('#commentary-rashi').click();
+  await switchCommentary(page);
   await expect(page.locator('#reading-rashi')).toHaveAttribute('aria-checked', 'true');
 });
 
-test('a cloud refresh chooses the saved commentary after an initially empty account render', async ({ page }) => {
+test('a cloud refresh shows the row its checks belong to after an initially empty account render', async ({ page }) => {
   await mockAccount(page, { initialRows: [{ year: 5787, parsha_id: 'Noach', rashi_3: true }] });
-  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#reading-onkelos')).toHaveCount(0);
   await expect(page.locator('#expand-rashi .reading-count')).toHaveText('1 of 7 aliyos');
+});
+
+test('a switch syncs to the account, including moved checks', async ({ page }) => {
+  const cloud = await mockAccount(page, { initialRows: [{ year: 5787, parsha_id: 'Noach', onkelos_2: true }] });
+  await switchCommentary(page);
+  await expect(page.locator('#expand-rashi .reading-count')).toHaveText('1 of 7 aliyos');
+  await expect.poll(() => cloud.getRows().find(row => row.parsha_id === 'Noach')).toMatchObject({ onkelos_2: false, rashi_2: true });
 });
 
 test('a double week keeps independent study aliyos and combines only completed readings', async ({ page }) => {
@@ -156,9 +191,8 @@ test('all themes and long custom commentary names fit at 320px with either check
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('A very long custom commentary name to check wrapping on a narrow phone');
   await page.locator('#tracker').click();
-  await page.locator('#commentary-rashi').click();
+  await switchCommentary(page);
   await page.locator('#expand-mikra1').click();
-  await page.locator('#expand-rashi').click();
   for (const layout of ['left', 'right']) {
     await page.evaluate(layout => { document.querySelector('#app').dataset.checkboxLayout = layout; }, layout);
     for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight']) {

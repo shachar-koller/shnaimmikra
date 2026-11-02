@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { schedule } from '../src/model.js';
-import { checkedReadings } from './fixtures.js';
+import { checkedReadings, switchCommentary } from './fixtures.js';
 
 const rows = schedule(5787, false);
 const boundaries = [1, 13, 24, 34, 44, 55];
@@ -90,7 +90,7 @@ test('partial progress remains visible for the current and selected readings', a
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('2 / 3');
   await page.locator('.parsharow[data-parsha="Bereshit"]').click();
   const selected = page.locator('.parsharow[data-parsha="Bereshit"]');
-  await page.locator('#commentary-rashi').click();
+  await switchCommentary(page);
   await page.locator('[data-reading="rashi"]').click();
   await expect(selected.locator('.parshastatus')).toHaveText('1/3');
   // The summary continues to describe this week while editing another parsha.
@@ -104,8 +104,8 @@ test('partial progress remains visible for the current and selected readings', a
   await expect(weekly).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('Rashi completion is stored and stays the shown commentary after reload', async ({ page }) => {
-  await page.locator('#commentary-rashi').click();
+test('Rashi completion is stored and stays on the row after reload', async ({ page }) => {
+  await switchCommentary(page);
   for (const reading of ['mikra1', 'mikra2', 'rashi']) {
     await page.locator(`[data-reading="${reading}"]`).click();
   }
@@ -118,42 +118,59 @@ test('Rashi completion is stored and stays the shown commentary after reload', a
   await expect(page.locator('.parsharow.current .statusring.complete svg')).toHaveCount(1);
   await expect(page.locator('.weeklyprogress .progressvalue')).toHaveText('3 / 3');
   await expect(page.locator('[data-reading="rashi"]')).toHaveAttribute('aria-checked', 'true');
-  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-reading="onkelos"]')).toHaveCount(0);
 });
 
-test('commentary choices can be switched and remain specific to each week', async ({ page }) => {
-  const rashi = page.locator('[data-reading="rashi"]');
-  const targum = page.locator('[data-reading="onkelos"]');
-  await expect(targum).toHaveCount(1);
-  await expect(rashi).toHaveCount(0);
-  await page.locator('#commentary-rashi').click();
-  await expect(page.locator('#commentary-rashi')).toBeFocused();
-  await expect(rashi).toHaveCount(1);
-  await expect(targum).toHaveCount(0);
-  await page.locator('#commentary-onkelos').click();
-  await targum.focus();
-  await page.keyboard.press('Space');
-  await expect(targum).toHaveAttribute('aria-checked', 'true');
-
-  await page.locator('.parsharow[data-parsha="Bereshit"]').click();
-  await page.locator('#commentary-rashi').click();
-  await rashi.click();
-  await page.reload();
-  await expect(targum).toHaveAttribute('aria-checked', 'true');
-  await expect(rashi).toHaveCount(0);
-  await page.locator('.parsharow[data-parsha="Bereshit"]').click();
-  await expect(rashi).toHaveAttribute('aria-checked', 'true');
-  await expect(targum).toHaveCount(0);
+test('the third row says Targum by default, with no separate switch or heading', async ({ page }) => {
+  await expect(page.locator('[data-reading-row="onkelos"] .reading-name')).toHaveText('Targum');
+  await expect(page.locator('#reading ol.reads')).toHaveCount(1);
+  await expect(page.locator('#reading ol.reads > li')).toHaveCount(3);
+  await expect(page.locator('#reading')).not.toContainText('Commentary');
+  await expect(page.locator('#switch-commentary')).toBeHidden();
+  await page.locator('#expand-onkelos').click();
+  await expect(page.locator('#switch-commentary')).toHaveText('Switch to Rashi for this parsha');
+  await page.locator('#expand-mikra1').click();
+  await expect(page.locator('#aliyos-mikra1')).not.toContainText('Switch to');
 });
 
-test('the last commentary chosen becomes the default for untouched parshiyos', async ({ page }) => {
-  await page.locator('#commentary-rashi').click();
+test('each parsha remembers its own choice, even before anything is checked', async ({ page }) => {
+  const rashi = page.locator('[data-reading="rashi"]');
+  const targum = page.locator('[data-reading="onkelos"]');
+  await switchCommentary(page);
+  await expect(page.locator('#switch-commentary')).toBeFocused();
+  await expect(page.locator('#switch-commentary')).toHaveText('Switch to Targum for this parsha');
+  await expect(rashi).toHaveCount(1);
+  await expect(targum).toHaveCount(0);
+
+  await page.locator('.parsharow[data-parsha="Bereshit"]').click();
+  await expect(targum).toHaveCount(1);
+  await page.reload();
+  await expect(rashi).toHaveCount(1);
+  await page.locator('.parsharow[data-parsha="Bereshit"]').click();
+  await expect(targum).toHaveCount(1);
+  await expect(rashi).toHaveCount(0);
+});
+
+test('switching one parsha leaves the default alone, and the default only reaches unstarted parshiyos', async ({ page }) => {
+  await switchCommentary(page);
   await page.locator('.parsharow[data-parsha="Lech-Lecha"]').click();
-  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-reading="onkelos"]')).toHaveCount(1);
+  await page.locator('[data-reading="onkelos"]').click();
+
+  await page.locator('#settings').click();
+  await expect(page.getByLabel('After Mikra')).toHaveValue('onkelos');
+  await page.getByLabel('After Mikra').selectOption('rashi');
+  await page.locator('#tracker').click();
+  await expect(page.locator('[data-reading="onkelos"]')).toHaveAttribute('aria-checked', 'true');
+  await page.locator('.parsharow[data-parsha="Vayera"]').click();
+  await expect(page.locator('[data-reading="rashi"]')).toHaveCount(1);
   await page.reload();
   await page.locator('.parsharow[data-parsha="Vayera"]').click();
-  await expect(page.locator('#commentary-rashi')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-reading="rashi"]')).toHaveCount(1);
+  await switchCommentary(page);
+  await expect(page.locator('[data-reading="onkelos"]')).toHaveCount(1);
+  await page.locator('#settings').click();
+  await expect(page.getByLabel('After Mikra')).toHaveValue('rashi');
 });
 
 test('browsing another parsha offers a way back to this week', async ({ page }) => {

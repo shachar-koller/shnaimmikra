@@ -1,4 +1,4 @@
-import { checkedReadings } from './fixtures.js';
+import { checkedReadings, switchCommentary } from './fixtures.js';
 import { wholeReadingPatch } from '../src/readings.js';
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
@@ -27,23 +27,18 @@ async function seedProgress(page) {
 
 test('custom peirush persists, keeps checkmarks, and appears in exports', async ({ page }) => {
   await seedProgress(page);
-  await expect(page.locator('[data-reading-row="onkelos"] .reading-name')).toHaveText('Onkelos');
+  await expect(page.locator('[data-reading-row="onkelos"] .reading-name')).toHaveText('Targum');
   await page.locator('#settings').click();
   await expect(page.getByLabel('Peirush', { exact: true })).toHaveValue('Rashi');
   await expect(page.locator('.settings-section h3')).toHaveCount(0);
   await page.getByLabel('Peirush', { exact: true }).fill('Ramban');
   await page.locator('#tracker').click();
-  await expect(page.locator('#commentary-rashi')).toHaveText('Ramban');
+  await expect(page.locator('#switch-commentary')).toHaveText('Switch to Ramban for this parsha');
   await page.reload();
-  await page.locator('#commentary-rashi').click();
-  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Ramban');
-  await expect(page.locator('[data-reading="rashi"]')).toHaveAccessibleName('Noach, Ramban, Not started. Mark all seven aliyos');
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, key)).toEqual(seed.progress);
-  await page.locator('#commentary-onkelos').click();
-  await expect(page.locator('[data-reading="onkelos"]')).toHaveAttribute('aria-checked', 'true');
-  await page.locator('[data-reading="onkelos"]').click();
-  await page.locator('#commentary-rashi').click();
-  await page.locator('[data-reading="rashi"]').click();
+  await switchCommentary(page);
+  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Ramban');
+  await expect(page.locator('[data-reading="rashi"]')).toHaveAccessibleName('Noach, Ramban, Complete. Clear all seven aliyos');
   await expect(page.locator('[data-reading="rashi"]')).toHaveAttribute('aria-checked', 'true');
   await page.locator('#settings').click();
   await expect(page.getByLabel('Peirush', { exact: true })).toHaveValue('Ramban');
@@ -53,12 +48,26 @@ test('custom peirush persists, keeps checkmarks, and appears in exports', async 
   expect(await readFile(await download.path(), 'utf8')).toContain('[x] Ramban');
 });
 
+test('the default choice in settings uses the custom peirush name', async ({ page }) => {
+  await page.locator('#settings').click();
+  await expect(page.getByLabel('After Mikra').locator('option')).toHaveText(['Targum', 'Rashi']);
+  await page.getByLabel('Peirush', { exact: true }).fill('Ramban');
+  await expect(page.getByLabel('After Mikra').locator('option')).toHaveText(['Targum', 'Ramban']);
+  await page.getByLabel('After Mikra').selectOption('rashi');
+  await page.reload();
+  await page.locator('#settings').click();
+  await expect(page.getByLabel('After Mikra')).toHaveValue('rashi');
+  await expect(page.getByLabel('After Mikra').locator('option')).toHaveText(['Targum', 'Ramban']);
+  await page.locator('#tracker').click();
+  await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('Ramban');
+});
+
 test('peirush names render as text and blank names fall back to Rashi', async ({ page }) => {
   await page.locator('#settings').click();
   await page.getByLabel('Peirush', { exact: true }).fill('<img src=x onerror=alert(1)>');
   await page.locator('#tracker').click();
-  await expect(page.locator('#commentary-rashi')).toHaveText('<img src=x onerror=alert(1)>');
-  await page.locator('#commentary-rashi').click();
+  await expect(page.locator('#switch-commentary')).toHaveText('Switch to <img src=x onerror=alert(1)> for this parsha');
+  await switchCommentary(page);
   await expect(page.locator('[data-reading-row="rashi"] .reading-name')).toHaveText('<img src=x onerror=alert(1)>');
   await expect(page.locator('#reading img')).toHaveCount(0);
   await page.locator('#settings').click();
@@ -142,7 +151,9 @@ test('export downloads all cycles and each reading status', async ({ page }) => 
   expect(text).toContain('Bereishis — Complete');
   expect(text).toContain('Noach — In progress');
   expect(text).toContain('[x] Rashi');
-  expect(text).toContain('[x] Targum (Onkelos)');
+  expect(text).toContain('[x] Targum');
+  expect(text).not.toContain('[ ] Targum');
+  expect(text).not.toContain('[ ] Rashi');
   expect(text).toContain('[ ] Mikra II');
   expect(text).toContain('Completed: 1');
 });

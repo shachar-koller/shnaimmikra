@@ -443,15 +443,9 @@ main { min-width: 0; }
 .parsha-meter span { height: 5px; border-radius: 999px; background: var(--track); overflow: hidden; }
 .parsha-meter i { display: block; height: 100%; border-radius: 999px; background: var(--green); transition: width var(--slow) var(--ease-out); }
 
-.commentary-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 6px; }
-.commentary-heading h3 { flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
-.commentary-switch { position: relative; flex: 0 1 230px; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 2px; border-radius: 10px; background: var(--tilebg); }
-.switch-pill { position: absolute; inset: 2px auto 2px 2px; width: calc(50% - 2px); border-radius: 8px; background: var(--pill); box-shadow: 0 1px 3px rgba(0, 0, 0, .14); transform: translateX(calc(var(--active) * 100%)); transition: transform var(--med) var(--ease-out); }
-.switch-option { position: relative; min-width: 0; min-height: 36px; padding: 0 8px; border-radius: 8px; color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color var(--fast) ease; }
-.switch-option[aria-pressed='true'] { color: var(--ink); }
 .text-action { color: var(--green); text-decoration: underline; text-underline-offset: 3px; min-height: 44px; font-size: 13px; }
-.aliyah-note, .saved-commentary { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
-.saved-commentary { margin: 8px 2px 0; overflow-wrap: anywhere; }
+.aliyah-note { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+.switch-commentary { display: block; margin-left: 26px; padding: 0 6px; text-align: left; overflow-wrap: anywhere; }
 .weekly-detail { font-size: 12px; color: var(--soft-ink); margin-top: 6px; overflow-wrap: anywhere; animation: rise-in var(--med) var(--ease-out); }
 .browsing { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0 12px; padding: 0 6px; margin-bottom: -10px; font-size: 13px; color: var(--muted); animation: rise-in var(--med) var(--ease-out); }
 
@@ -472,7 +466,7 @@ main { min-width: 0; }
 
 /* Pressing anything gives immediate feedback on touch screens. */
 .aliyah-choice:active .rcheck, .reading-check:active .rcheck { scale: .92; }
-.sefertab, .parsharow, .switch-option, .primary, .secondary, .settings-action, .theme-option { transition: background-color var(--fast) ease, color var(--fast) ease, scale var(--fast) ease; }
+.sefertab, .parsharow, .primary, .secondary, .settings-action, .theme-option { transition: background-color var(--fast) ease, color var(--fast) ease, scale var(--fast) ease; }
 .primary:active, .secondary:active { scale: .96; }
 .parsharow:active { scale: .99; }
 
