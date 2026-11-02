@@ -251,6 +251,32 @@ test('failed cloud reset preserves local progress and shows a retryable error', 
   expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).progress, accountKey)).toEqual(before);
 });
 
+test('settings save to the account and changes from another device apply here', async ({ page }) => {
+  const cloud = await mockAccount(page);
+  await page.locator('#settings').click();
+  await page.locator('[data-theme-choice="midnight"]').click();
+  await page.getByLabel('Peirush', { exact: true }).fill('Ramban');
+  await page.getByLabel('Text size').selectOption('larger');
+  await expect.poll(() => cloud.getProfile()).toMatchObject({ theme: 'midnight', peirush_name: 'Ramban', text_size: 'larger' });
+  // A field being typed in is deliberately left alone by a background refresh.
+  await page.getByLabel('Text size').focus();
+  cloud.setProfile({ theme: 'parchment', peirush_name: 'Sforno', text_size: 'standard' });
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'parchment');
+  await expect(page.locator('html')).toHaveAttribute('data-text-size', 'standard');
+  await expect(page.locator('[data-theme-choice="parchment"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Peirush', { exact: true })).toHaveValue('Sforno');
+  await page.locator('#tracker').click();
+  await expect(page.locator('#switch-commentary')).toHaveText('Switch to Sforno for this parsha');
+});
+
+test('a device with a saved theme fills an account that has none', async ({ page }) => {
+  await page.evaluate(({ accountKey, seed }) => localStorage.setItem(accountKey, JSON.stringify({ ...seed, theme: 'midnight', storageVersion: 2, pending: { progress: {}, profile: {} } })), { accountKey, seed });
+  const cloud = await mockAccount(page, { initialProfile: { theme: null } });
+  await expect.poll(() => cloud.getProfile().theme).toBe('midnight');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'midnight');
+});
+
 test('sign out succeeds locally when the server cannot be reached', async ({ page }) => {
   await mockAccount(page);
   await page.route('**/auth/v1/logout*', route => route.abort());

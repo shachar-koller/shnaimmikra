@@ -1,9 +1,10 @@
 import { expect } from '@playwright/test';
 import { checkedReadings } from './fixtures.js';
 
-export async function mockAccount(page, { failDelete = false, delayedWrite = false, initialRows } = {}) {
+export async function mockAccount(page, { failDelete = false, delayedWrite = false, initialRows, initialProfile } = {}) {
   const userId = '11111111-1111-4111-8111-111111111111';
   const requests = [];
+  let profile = { israel: false, commentary: 'onkelos', ...initialProfile };
   let rows = initialRows || [{ year: 5786, parsha_id: 'Bereshit', ...checkedReadings('mikra1', 'mikra2', 'rashi') }];
   await page.route('**/auth/v1/**', async route => {
     requests.push({ method: route.request().method(), url: route.request().url() });
@@ -14,7 +15,8 @@ export async function mockAccount(page, { failDelete = false, delayedWrite = fal
     requests.push({ method: request.method(), url: request.url() });
     const url = new URL(request.url());
     if (url.pathname.endsWith('/profiles')) {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(request.method() === 'GET' ? { israel: false, commentary: 'onkelos' } : {}) });
+      if (request.method() !== 'GET') profile = { ...profile, ...request.postDataJSON() };
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(request.method() === 'GET' ? profile : {}) });
     } else if (request.method() === 'GET') {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(rows) });
     } else if (request.method() === 'DELETE') {
@@ -42,6 +44,6 @@ export async function mockAccount(page, { failDelete = false, delayedWrite = fal
     if (error) throw error;
   }, token);
   await expect(page.locator('#announcement')).toContainText('Progress synced');
-  return { requests, getRows: () => rows };
+  return { requests, getRows: () => rows, getProfile: () => profile, setProfile: patch => { profile = { ...profile, ...patch }; } };
 }
 

@@ -24,6 +24,9 @@ explicitly choose to keep progress in their browser.
    calculated in the app; there is no totals trigger or support for old clients.
    Deploy this schema and the updated app together. Old local-only reading
    formats and backups are not converted by the app.
+6. Run `supabase/migrations/20261102120000_account_settings.sql` before deploying
+   the account-wide settings app. The new app asks for these columns, so syncing
+   fails without them. Older apps are unaffected by this migration.
 
 ## 2. Wire the app
 
@@ -84,8 +87,11 @@ Sign-in is Google-only — no other providers are wired.
   wins when devices edit the same field. Empty reading rows remain in the database.
   Whole-reading shortcuts send all seven fields. Sparse upserts update only the
   supplied columns, preserving sibling cells.
-- Calendar and commentary choice sync with the account. Theme and the custom
-  commentary label stay on the device and are included in JSON backups.
+- Every setting syncs with the account through its own `profiles` column, and
+  the last server-received write wins per setting. A null column means the
+  account has never saved that setting, so the app uses its default or uploads a
+  choice the device already has. The device keeps a copy for offline use. Guests
+  have no account, so their settings stay in the browser.
 - Confirmed reset requests survive network failures and retry on reconnect. See
   [the root README](../README.md) for retry, import, and backup behavior.
 

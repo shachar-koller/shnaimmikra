@@ -1,4 +1,4 @@
-import { PREFERENCE_KEYS, normalizePreferences } from './preferences.js';
+import { PREFERENCE_DEFAULTS, PREFERENCE_KEYS, normalizePreferences } from './preferences.js';
 import { peirushName } from './progress.js';
 import { READINGS, readingChecks, aliyahField, normalizeProgress, readingPatch, applyReadingPatch } from './readings.js';
 export { READINGS, ALIYAH_FIELDS } from './readings.js';
@@ -18,6 +18,9 @@ export function validTheme(value) {
   return themes.some(theme => theme.id === value) ? value : 'grayscale';
 }
 export const emptyData = () => ({ progress: {}, israel: false, commentary: 'onkelos', theme: 'grayscale' });
+export const SETTING_KEYS = ['israel', 'commentary', 'theme', 'peirushName', ...PREFERENCE_KEYS];
+const SETTING_DEFAULTS = { ...emptyData(), peirushName: 'Rashi', ...PREFERENCE_DEFAULTS };
+const sameValue = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 export function normalizeData(raw = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('Invalid saved data');
   const progress = {};
@@ -26,9 +29,10 @@ export function normalizeData(raw = {}) {
     const checked = normalizeProgress(value);
     if (Object.keys(checked).length) progress[key] = checked;
   }
+  const peirush = peirushName(raw.peirushName);
   return {
     progress, israel: raw.israel === true, commentary: raw.commentary === 'rashi' ? 'rashi' : 'onkelos',
-    theme: validTheme(raw.theme), ...normalizePreferences(raw), ...(raw.peirushName ? { peirushName: peirushName(raw.peirushName) } : {}),
+    theme: validTheme(raw.theme), ...normalizePreferences(raw), ...(peirush === SETTING_DEFAULTS.peirushName ? {} : { peirushName: peirush }),
   };
 }
 const emptyPending = () => ({ progress: {}, profile: {} });
@@ -68,12 +72,12 @@ export function createRepository(storage) {
     }
   }
   function patchSettings(record, userId, patch) {
-    for (const key of ['israel', 'commentary', 'theme', 'peirushName', ...PREFERENCE_KEYS]) {
-      if (!Object.hasOwn(patch, key) || patch[key] === record.data[key]) continue;
+    for (const key of SETTING_KEYS) {
+      if (!Object.hasOwn(patch, key) || sameValue(patch[key], record.data[key])) continue;
       if (patch[key] === undefined) delete record.data[key];
       else record.data[key] = patch[key];
-      // Only calendar and commentary sync; other preferences are local and included in backups.
-      if (userId && ['israel', 'commentary'].includes(key)) record.pending.profile[key] = operation(patch[key]);
+      // Clearing the custom label saves the default, so other devices see it as a change.
+      if (userId) record.pending.profile[key] = operation(key === 'peirushName' ? peirushName(patch[key]) : patch[key]);
     }
   }
   return {
@@ -133,11 +137,14 @@ export function createRepository(storage) {
         if (Object.keys(next).length) record.data.progress[key] = next;
         else delete record.data.progress[key];
       }
-      if (profile) {
-        record.data.israel = profile.israel === true;
-        record.data.commentary = profile.commentary === 'rashi' ? 'rashi' : 'onkelos';
+      if (profile) for (const key of SETTING_KEYS) {
+        if (Object.hasOwn(record.pending.profile, key)) continue;
+        if (profile[key] !== null && profile[key] !== undefined) record.data[key] = profile[key];
+        // The account has never saved this setting, so a choice already made here becomes its value.
+        else if (record.data[key] !== undefined && !sameValue(record.data[key], SETTING_DEFAULTS[key])) record.pending.profile[key] = operation(record.data[key]);
       }
       Object.assign(record.data, pendingValues(record.pending.profile));
+      record.data = normalizeData(record.data);
     }),
   };
 }

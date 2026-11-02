@@ -59,7 +59,18 @@ try {
   assert.ok(denied, 'Another account must not edit a cell');
   await a.clear(account.id);
   assert.deepEqual((await a.pull(account.id)).progress, {});
-  console.log('Local Supabase: concurrent aliyah writes, bulk clear, account isolation, and reset passed.');
+  // Every setting round-trips through its own column, and writes stay sparse.
+  const settings = { israel: true, commentary: 'rashi', theme: 'midnight', peirushName: 'Ramban', followDevice: true, lightTheme: 'forest', darkTheme: 'midnight', textSize: 'larger', glass: 35, naming: 'hebrew', confetti: false, vibration: false, reminderDays: [1, 4], reminderTime: '18:30' };
+  await a.writeProfile(account.id, settings);
+  assert.deepEqual((await b.pull(account.id)).profile, settings);
+  await b.writeProfile(account.id, { theme: 'parchment' });
+  assert.deepEqual((await a.pull(account.id)).profile, { ...settings, theme: 'parchment' });
+  await a.writeProfile(account.id, { reminderDays: [] });
+  assert.deepEqual((await b.pull(account.id)).profile.reminderDays, []);
+  const { data: hiddenProfile } = await other.device.from('profiles').select('theme').eq('id', account.id);
+  assert.deepEqual(hiddenProfile, []);
+  await assert.rejects(a.writeProfile(account.id, { glass: 101 }));
+  console.log('Local Supabase: concurrent aliyah writes, bulk clear, account isolation, reset, and account settings passed.');
 } finally {
   for (const id of users) {
     const { error } = await admin.auth.admin.deleteUser(id);
