@@ -1,7 +1,7 @@
 import { READER_MODES } from './reader-model.js';
 
-export const LIGHT_THEMES = ['grayscale', 'forest', 'parchment', 'tekhelet', 'jerusalem-stone', 'pomegranate'];
-export const DARK_THEMES = ['dark-grayscale', 'forest-dark', 'midnight', 'kinneret', 'olive-press', 'havdalah'];
+export const LIGHT_THEMES = ['grayscale', 'forest', 'parchment', 'tekhelet', 'jerusalem-stone', 'pomegranate', 'etrog', 'argaman', 'shkiah', 'hadas'];
+export const DARK_THEMES = ['dark-grayscale', 'forest-dark', 'midnight', 'kinneret', 'olive-press', 'havdalah', 'negev', 'lailah', 'kiddush', 'bareket'];
 export const PREFERENCE_DEFAULTS = {
   followDevice: false, lightTheme: 'grayscale', darkTheme: 'dark-grayscale',
   textSize: 'standard', glass: 50, naming: 'ashkenazi', confetti: true, vibration: true,

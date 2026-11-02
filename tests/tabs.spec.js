@@ -165,7 +165,7 @@ test('the bar is hidden on the welcome screen', async ({ page }) => {
 
 test('the last tracker row can scroll clear of the bar, with glass in every theme', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
-  for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight', 'tekhelet', 'kinneret', 'jerusalem-stone', 'olive-press', 'pomegranate', 'havdalah']) {
+  for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight', 'tekhelet', 'kinneret', 'jerusalem-stone', 'olive-press', 'pomegranate', 'havdalah', 'etrog', 'negev', 'argaman', 'lailah', 'shkiah', 'kiddush', 'hadas', 'bareket']) {
     await page.locator('#settings').click();
     await page.locator(`[data-theme-choice="${theme}"]`).click();
     await page.locator('#tracker').click();

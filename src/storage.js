@@ -19,6 +19,14 @@ export const themes = [
   { id: 'olive-press', label: 'Olive Press', color: '#15160e' },
   { id: 'pomegranate', label: 'Pomegranate', color: '#fbf1f1' },
   { id: 'havdalah', label: 'Havdalah', color: '#171021' },
+  { id: 'etrog', label: 'Etrog', color: '#f9f6dc' },
+  { id: 'negev', label: 'Negev', color: '#1a130e' },
+  { id: 'argaman', label: 'Argaman', color: '#f3f0fb' },
+  { id: 'lailah', label: 'Lailah', color: '#000000' },
+  { id: 'shkiah', label: 'Shkiah', color: '#fdf1e7' },
+  { id: 'kiddush', label: 'Kiddush', color: '#1c0c12' },
+  { id: 'hadas', label: 'Hadas', color: '#ebf4ee' },
+  { id: 'bareket', label: 'Bareket', color: '#07190f' },
 ];
 export function validTheme(value) {
   return themes.some(theme => theme.id === value) ? value : 'grayscale';
