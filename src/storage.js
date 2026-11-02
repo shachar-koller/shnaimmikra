@@ -13,6 +13,12 @@ export const themes = [
   { id: 'forest-dark', label: 'Forest Dark', color: '#151817' },
   { id: 'parchment', label: 'Parchment', color: '#f5efe1' },
   { id: 'midnight', label: 'Midnight', color: '#0e1320' },
+  { id: 'tekhelet', label: 'Tekhelet', color: '#eef3fb' },
+  { id: 'kinneret', label: 'Kinneret', color: '#0b1a1e' },
+  { id: 'jerusalem-stone', label: 'Jerusalem', color: '#ece7df' },
+  { id: 'olive-press', label: 'Olive Press', color: '#15160e' },
+  { id: 'pomegranate', label: 'Pomegranate', color: '#fbf1f1' },
+  { id: 'havdalah', label: 'Havdalah', color: '#171021' },
 ];
 export function validTheme(value) {
   return themes.some(theme => theme.id === value) ? value : 'grayscale';

@@ -126,7 +126,7 @@ test('default theme is grayscale', async ({ page }) => {
 
 test('all themes apply immediately, persist, and keep progress', async ({ page }) => {
   await seedProgress(page);
-  for (const [theme, background] of [['grayscale', 'rgb(245, 245, 245)'], ['dark-grayscale', 'rgb(23, 23, 23)'], ['forest', 'rgb(250, 249, 246)'], ['forest-dark', 'rgb(21, 24, 23)'], ['parchment', 'rgb(245, 239, 225)'], ['midnight', 'rgb(14, 19, 32)']]) {
+  for (const [theme, background] of [['grayscale', 'rgb(245, 245, 245)'], ['dark-grayscale', 'rgb(23, 23, 23)'], ['forest', 'rgb(250, 249, 246)'], ['forest-dark', 'rgb(21, 24, 23)'], ['parchment', 'rgb(245, 239, 225)'], ['midnight', 'rgb(14, 19, 32)'], ['tekhelet', 'rgb(238, 243, 251)'], ['kinneret', 'rgb(11, 26, 30)'], ['jerusalem-stone', 'rgb(236, 231, 223)'], ['olive-press', 'rgb(21, 22, 14)'], ['pomegranate', 'rgb(251, 241, 241)'], ['havdalah', 'rgb(23, 16, 33)']]) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.locator(`[data-theme-choice="${theme}"]`).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);

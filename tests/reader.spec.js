@@ -836,7 +836,7 @@ test.describe('layout and access', () => {
 
   test('a small screen and long verses fit in every theme, with controls clear of the bar', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
-    for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight']) {
+    for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight', 'tekhelet', 'kinneret', 'jerusalem-stone', 'olive-press', 'pomegranate', 'havdalah']) {
       await page.locator('#settings').click();
       await page.locator(`[data-theme-choice="${theme}"]`).click();
       await page.locator('#chumash').click();

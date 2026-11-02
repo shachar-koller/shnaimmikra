@@ -664,6 +664,8 @@ function modal(html, label = 'Dialog') {
 function settingsPanel() {
   const baseYear = cycleYear(new Date(), data.israel);
   const prefs = preferences(data);
+  // SVG rather than a CSS gradient: hard gradient stops are not antialiased, so the diagonal looks jagged.
+  const themeSwatch = theme => `<svg class="theme-swatch swatch-${theme.id}" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9.5"/><path d="M16.72 3.28A9.5 9.5 0 0 1 3.28 16.72Z"/><circle class="swatch-ring" cx="10" cy="10" r="9.5"/></svg>`;
   const themeChoices = ids => themes.filter(theme => ids.includes(theme.id)).map(theme => `<option value="${theme.id}">${theme.label}</option>`).join('');
   return `<header class="titlerow"><h1>Settings</h1></header>
     <div class="settings-body">
@@ -675,7 +677,7 @@ function settingsPanel() {
     ${prefs.followDevice ? `<label class="setting-row">Light theme<select id="light-theme">${themeChoices(LIGHT_THEMES)}</select></label>
     <label class="setting-row">Dark theme<select id="dark-theme">${themeChoices(DARK_THEMES)}</select></label>` : `<div class="appearance-group">
     <div class="theme-options" role="group" aria-label="Theme">
-      ${themes.map(theme => `<button type="button" class="theme-option" data-theme-choice="${theme.id}" aria-pressed="${data.theme === theme.id}"><span class="theme-swatch swatch-${theme.id}" aria-hidden="true"></span>${theme.label}</button>`).join('')}
+      ${themes.map(theme => `<button type="button" class="theme-option" data-theme-choice="${theme.id}" aria-pressed="${data.theme === theme.id}">${themeSwatch(theme)}${theme.label}</button>`).join('')}
     </div></div>`}
     <label class="setting-row">Text size<select id="text-size"><option value="standard">Standard</option><option value="larger">Larger</option></select></label>
     <label class="setting-row glass-setting">Tab bar glass

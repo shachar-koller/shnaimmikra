@@ -195,7 +195,7 @@ test('all themes and long custom commentary names fit at 320px with either check
   await page.locator('#expand-mikra1').click();
   for (const layout of ['left', 'right']) {
     await page.evaluate(layout => { document.querySelector('#app').dataset.checkboxLayout = layout; }, layout);
-    for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight']) {
+    for (const theme of ['grayscale', 'dark-grayscale', 'forest', 'forest-dark', 'parchment', 'midnight', 'tekhelet', 'kinneret', 'jerusalem-stone', 'olive-press', 'pomegranate', 'havdalah']) {
       await page.locator('#settings').click();
       await page.locator(`[data-theme-choice="${theme}"]`).click();
       await page.locator('#tracker').click();
