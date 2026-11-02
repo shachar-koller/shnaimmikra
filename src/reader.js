@@ -7,7 +7,7 @@ import { ALIYAH_COUNT, ALIYAH_NAMES, aliyahField } from './readings.js';
 import { createTextLoader } from './chumash-text.js';
 import {
   READER_MODES, SHNAYIM_MIKRA_READINGS, aliyahCompletionPatch, createReaderStore, isMarked, mikraPatch,
-  pasukLocation, resolvePosition, startPosition, stepPasuk,
+  parshaReadingProgress, pasukLocation, resolvePosition, startPosition, stepPasuk,
 } from './reader-model.js';
 import { celebrate, haptic, pop, slideIn } from './motion.js';
 import { createCardSwipe } from './reader-swipe.js';
@@ -256,10 +256,18 @@ export function createReader(app) {
     return `${aliyah} · Pasuk ${number} of ${total}`;
   }
 
+  function readingProgressState() {
+    const { value, total } = parshaReadingProgress(parsha(), location.position, mode);
+    const part = mode === 'classic' ? 'Mikra'
+      : { first: 'Mikra I', targum: 'Targum Onkelos', second: 'Mikra II' }[location.position.part];
+    const description = `${value} of ${total} readings in ${name()} · ${location.position.end ? `End of ${aliyahName()}` : part}`;
+    return { value, total, description };
+  }
+
   function readingProgress() {
     if (!ready()) return '';
-    const { number, total } = pasukLocation(parsha(), location.position);
-    return `<progress class="reader-progress" id="reader-progress" max="${total}" value="${number}" aria-label="Reading position in this aliyah" aria-valuetext="${locationText()}"></progress>`;
+    const { value, total, description } = readingProgressState();
+    return `<progress class="reader-progress" id="reader-progress" max="${total}" value="${value}" aria-label="Reading position in this parsha" aria-valuetext="${esc(description)}" title="${esc(description)}"></progress>`;
   }
 
   function parshaOptions(rows) {
@@ -376,8 +384,10 @@ export function createReader(app) {
     setPosition({ aliyah: position.aliyah, ref, part, end }, { later: true });
     document.querySelector('#reader-location').textContent = locationText();
     const meter = document.querySelector('#reader-progress');
-    meter.value = pasukLocation(parsha(), location.position).number;
-    meter.setAttribute('aria-valuetext', locationText());
+    const { value, description } = readingProgressState();
+    meter.value = value;
+    meter.setAttribute('aria-valuetext', description);
+    meter.title = description;
   }
 
   window.addEventListener('scroll', () => { frame ??= requestAnimationFrame(trackScroll); }, { passive: true });

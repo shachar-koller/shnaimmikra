@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TextError, createTextLoader, resolveParsha, textSlug, textUrl } from '../src/chumash-text.js';
 import {
-  aliyahCompletionPatch, cleanPosition, createReaderStore, isMarked, mikraPatch, pasukLocation,
+  aliyahCompletionPatch, cleanPosition, createReaderStore, isMarked, mikraPatch, parshaReadingProgress, pasukLocation,
   resolvePosition, startPosition, stepPasuk, swipeDirection,
 } from '../src/reader-model.js';
 import { parshaFixture, targumWord, torahWord } from './reader-fixtures.js';
@@ -13,6 +13,27 @@ const memoryStorage = () => {
   return { getItem: key => items.get(key) ?? null, setItem: (key, value) => items.set(key, value), items };
 };
 const ok = body => ({ ok: true, status: 200, json: async () => body, clone: () => ok(body) });
+
+test('parsha progress counts each reading and continues across all seven aliyos', () => {
+  for (const mode of ['flow', 'cards', 'classic']) {
+    let expected = 0;
+    const parts = mode === 'classic' ? ['first'] : ['first', 'targum', 'second'];
+    const total = 16 * parts.length;
+    parsha.aliyot.forEach((aliyah, index) => {
+      aliyah.verses.forEach(verse => {
+        for (const part of parts) {
+          assert.deepEqual(parshaReadingProgress(parsha, { aliyah: index, ref: verse.ref, part, end: false }, mode),
+            { value: ++expected, total });
+        }
+      });
+      assert.deepEqual(parshaReadingProgress(parsha, { aliyah: index, ref: aliyah.verses.at(-1).ref, part: 'first', end: true }, mode),
+        { value: expected, total }, 'an end screen stays at the end of its aliyah');
+    });
+    assert.equal(expected, total);
+  }
+  assert.deepEqual(parshaReadingProgress(parsha, { aliyah: 1, ref: '2:1', part: 'second', end: false }, 'classic'),
+    { value: 7, total: 16 }, 'Classic counts one reading regardless of the saved sequence part');
+});
 
 test('torah and targum pair by reference, not by position in the file', () => {
   // With 1:3 absent, every later targum verse would be off by one if paired by array position.

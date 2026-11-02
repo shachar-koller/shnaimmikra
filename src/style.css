@@ -998,7 +998,7 @@ footer .warn { color: var(--warning); }
 .tx-bold { font-weight: 700; }
 .tx-ketiv, .tx-note { color: var(--muted); font-size: .72em; }
 /* Throws leave the viewport without widening the page or hiding vertical scrolling. */
-body:has(.reader-card-deck) { overflow-x: clip; }
+html:has(.reader-card-deck), body:has(.reader-card-deck) { overflow-x: clip; }
 .reader-card-deck { position: relative; isolation: isolate; padding-bottom: 14px; }
 .reader-card-deck::before, .reader-card-deck::after {
   content: ''; position: absolute; inset: 0 0 14px; z-index: -1;

@@ -30,6 +30,8 @@ export function createCardSwipe({ canStep, onSwipe, onDirection }) {
     if (!card?.isConnected || reducedMotion()) return;
     const path = springPath(0, 1);
     animation = card.animate(path.map(({ x }) => ({
+      // Reveal long verses from their top so scaling never moves the reading line.
+      transformOrigin: from.scale === undefined ? '50% 80%' : '50% 0%',
       transform: transform({
         x: (from.x || 0) * (1 - x), y: (from.y || 0) * (1 - x),
         angle: (from.angle || 0) * (1 - x), scale: 1 + ((from.scale ?? 1) - 1) * (1 - x),

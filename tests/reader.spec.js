@@ -46,8 +46,8 @@ test.describe('the three modes', () => {
     await expect(groups.nth(0).locator('.pasuk-text').nth(0)).toHaveAttribute('dir', 'rtl');
     await expect(groups.nth(1).locator('.pasuk-ref')).toHaveText('Bereishis 1:2');
     await expect(location(page)).toHaveText('Aliyah 1 · Pasuk 1 of 4');
-    await expect(page.getByRole('progressbar', { name: 'Reading position in this aliyah' })).toHaveAttribute('value', '1');
-    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '4');
+    await expect(page.getByRole('progressbar', { name: 'Reading position in this parsha' })).toHaveAttribute('value', '1');
+    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '48');
     await expect(page.locator('.flow')).not.toContainText(torahWord('1:5'));
     await expect(page.locator('.reader-end #reader-continue')).toBeVisible();
   });
@@ -126,6 +126,38 @@ test.describe('the three modes', () => {
 });
 
 test.describe('keeping the place', () => {
+  test('parsha progress advances per reading and carries across aliyos to the final end screen', async ({ page }) => {
+    await page.locator('#chumash').click();
+    const meter = page.getByRole('progressbar', { name: 'Reading position in this parsha' });
+    await expect(meter).toHaveJSProperty('max', 48);
+    await expect(meter).toHaveJSProperty('value', 1);
+    await scrollToVerse(page, '1:1', 'targum');
+    await expect(meter).toHaveJSProperty('value', 2);
+    await scrollToVerse(page, '1:1', 'second');
+    await expect(meter).toHaveJSProperty('value', 3);
+    await scrollToVerse(page, '1:2', 'first');
+    await expect(meter).toHaveJSProperty('value', 4);
+
+    await page.locator('#reader-aliyah').selectOption('1');
+    await expect(meter).toHaveJSProperty('value', 13);
+    await page.reload();
+    await expect(meter).toHaveJSProperty('value', 13);
+    await expect(meter).toHaveJSProperty('max', 48);
+
+    await mode(page, 'cards');
+    await page.locator('#reader-aliyah').selectOption('6');
+    await expect(meter).toHaveJSProperty('value', 43);
+    await page.locator('#reader-next').click();
+    await expect(location(page)).toHaveText('Aliyah 7 · Pasuk 2 of 2');
+    await expect(meter).toHaveJSProperty('value', 46);
+    await page.locator('#reader-next').click();
+    await expect(location(page)).toHaveText('Aliyah 7 · End');
+    await expect(meter).toHaveJSProperty('value', 48);
+    await page.locator('#reader-previous').click();
+    await expect(meter).toHaveJSProperty('value', 46);
+    expect(await progressOf(page)).toEqual({});
+  });
+
   test('switching modes keeps the pasuk across a perek boundary, and cards and flow keep the part', async ({ page }) => {
     await page.locator('#chumash').click();
     await page.locator('#reader-aliyah').selectOption('1');
@@ -133,12 +165,12 @@ test.describe('keeping the place', () => {
     await scrollToVerse(page, '2:1', 'targum');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
     await expect.poll(() => savedPosition(page)).toEqual({ aliyah: 1, ref: '2:1', part: 'targum', end: false });
-    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
-    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '5');
-    await expect(page.locator('#reader-progress')).toHaveAttribute('aria-valuetext', 'Aliyah 2 · Pasuk 3 of 5');
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 20);
+    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '48');
+    await expect(page.locator('#reader-progress')).toHaveAttribute('aria-valuetext', '20 of 48 readings in Noach · Targum Onkelos');
 
     await mode(page, 'cards');
-    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 20);
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 2:1');
     await expect(page.locator('.pasuk [data-part="first"] .pasuk-text')).toContainText(torahWord('2:1'));
     await expect(page.locator('.pasuk [data-part="targum"]')).toBeInViewport();
@@ -150,7 +182,8 @@ test.describe('keeping the place', () => {
 
     await mode(page, 'classic');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
-    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 7);
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('max', 16);
     await expect(page.locator('[data-verse="2:1"]').first()).toBeInViewport();
 
     // Classic has one copy of the pasuk, and the part survives the trip through it.
@@ -187,8 +220,8 @@ test.describe('keeping the place', () => {
     await expect(page.locator('.pasuk-ref')).toHaveText('Bereishis 2:1');
     await expect(location(page)).toHaveText('Aliyah 2 · Pasuk 3 of 5');
     await expect(page.locator('#reader-aliyah')).toHaveValue('1');
-    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 3);
-    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '5');
+    await expect(page.locator('#reader-progress')).toHaveJSProperty('value', 19);
+    await expect(page.locator('#reader-progress')).toHaveAttribute('max', '48');
   });
 
   test('a reload of a flow bookmark scrolls to it, and leaving the reader means a fresh launch opens the tracker', async ({ page }) => {

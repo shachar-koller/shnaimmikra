@@ -20,6 +20,7 @@ async function drag(page, distance) {
   await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: point(0) });
   for (let step = 1; step <= 5; step++) {
     await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: point(distance * step / 5) });
+    await new Promise(resolve => setTimeout(resolve, 16));
   }
   return {
     end: async () => {
@@ -41,16 +42,24 @@ const bookmark = page => page.evaluate(key => JSON.parse(localStorage.getItem(ke
 
 test('the card follows and tilts under the finger, revealing the next pasuk before committing', async ({ page }) => {
   const gesture = await drag(page, 115);
-  await expect.poll(async () => (await pose(page)).x).toBeGreaterThan(100);
-  expect((await pose(page)).tilt).toBeGreaterThan(.05);
-  await expect(page.locator('#reader-card .pasuk-ref')).toHaveText('Bereishis 1:1');
-  await expect(page.locator('.reader-card-peek')).toHaveAttribute('aria-hidden', 'true');
-  await expect(page.locator('.reader-card-peek')).toHaveAttribute('inert', '');
-  await expect(page.locator('.peek-pasuk-ref')).toHaveText('Bereishis 1:2');
-  expect((await bookmark(page))?.ref ?? '1:1').toBe('1:1');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(393);
-
+  const during = await page.evaluate(() => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(document.querySelector('#reader-card')).transform);
+    const peek = document.querySelector('.reader-card-peek');
+    return {
+      x: matrix.m41, tilt: matrix.m12, width: document.documentElement.scrollWidth,
+      current: document.querySelector('#reader-card .pasuk-ref').textContent,
+      preview: peek.querySelector('.peek-pasuk-ref').textContent,
+      hidden: peek.getAttribute('aria-hidden'), inert: peek.inert,
+    };
+  });
   await gesture.end();
+  expect(during.x).toBeGreaterThan(100);
+  expect(during.tilt).toBeGreaterThan(.05);
+  expect(during.current).toBe('Bereishis 1:1');
+  expect(during.preview).toBe('Bereishis 1:2');
+  expect(during.hidden).toBe('true');
+  expect(during.inert).toBe(true);
+  expect(during.width).toBe(393);
   await expect(page.locator('#reader-card .pasuk-ref')).toHaveText('Bereishis 1:2');
   expect((await bookmark(page)).ref).toBe('1:2');
   await expect.poll(async () => Math.abs((await pose(page)).x)).toBeLessThan(.5);

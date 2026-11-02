@@ -4,7 +4,7 @@ a vibe coded shnaim mikra tracking app.
 
 The Chumash tab shows the selected parsha one aliyah at a time, in three views of the same reading session:
 
-- **Cards:** one pasuk at a time, as Torah, Targum Onkelos, then the same Torah again. Move with **Next pasuk** and **Previous pasuk**, or swipe. Pages turn the Hebrew way: pull right for the next pasuk. Swipes are for touch; on a computer, dragging selects text.
+- **Cards:** one pasuk at a time, as Torah, Targum Onkelos, then the same Torah again. Move with **Next pasuk** and **Previous pasuk**, or swipe. Pages turn the Hebrew way: pull right for the next pasuk. Cards follow and tilt with your drag, reveal the next card underneath, and fly away on release; a short drag springs back. On a computer, drag the card header or empty space to swipe; dragging Hebrew text still selects it. Reduced motion keeps navigation instant.
 - **Flow:** the whole aliyah as a scrolling page, with that same three-part sequence for each pasuk.
 - **Classic:** ordinary Torah text with each pasuk once, verse markers, perek markers and the source's petuchah and setumah breaks. Classic has no Onkelos.
 

@@ -53,6 +53,18 @@ export function pasukLocation(parsha, { aliyah, ref }) {
   return { number: verses.findIndex(verse => verse.ref === ref) + 1, total: verses.length };
 }
 
+/** Position across the entire parsha, counting each reading of a pasuk separately. */
+export function parshaReadingProgress(parsha, position, mode) {
+  const counts = parsha.aliyot.map(aliyah => aliyah.verses.length);
+  const preceding = counts.slice(0, position.aliyah).reduce((sum, count) => sum + count, 0);
+  const readings = mode === 'classic' ? 1 : PASUK_PARTS.length;
+  const total = counts.reduce((sum, count) => sum + count, 0) * readings;
+  if (position.end) return { value: (preceding + counts[position.aliyah]) * readings, total };
+  const { number } = pasukLocation(parsha, position);
+  const part = mode === 'classic' ? 0 : PASUK_PARTS.indexOf(position.part);
+  return { value: (preceding + number - 1) * readings + part + 1, total };
+}
+
 /**
  * A swipe is one quick, clearly horizontal touch stroke with no text being selected.
  * Hebrew pages turn rightward, so pulling the page to the right moves forward.
