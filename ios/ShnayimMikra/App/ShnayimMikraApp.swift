@@ -49,7 +49,15 @@ struct RootView: View {
                     }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    GlassTabBar { tab in if tab == .tracker { trackerTop += 1 } }
+                    Color.clear.frame(height: NativeTabBar.contentClearance).allowsHitTesting(false)
+                }
+                // Reaches the bottom of the screen, because UIKit floats the pill above the home indicator.
+                .overlay {
+                    NativeTabBar(selected: app.tab, palette: palette, onSelect: select)
+                        .frame(maxWidth: NativeTabBar.maxWidth)
+                        .frame(height: NativeTabBar.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .ignoresSafeArea(edges: .bottom)
                 }
                 .transition(.opacity)
             }
@@ -85,6 +93,12 @@ struct RootView: View {
                 }
             }
         }
+    }
+
+    /// Tapping Tracker while already on it scrolls it back to the top.
+    private func select(_ tab: AppModel.Tab) {
+        if tab == .tracker && app.tab == .tracker { trackerTop += 1 }
+        app.tab = tab
     }
 
     private func larger(_ size: DynamicTypeSize) -> DynamicTypeSize {
