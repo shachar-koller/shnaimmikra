@@ -51,7 +51,7 @@ Running on a physical phone requires separate signing setup; the CI workflow doe
 
 ### Google sign-in
 
-Sign-in uses Supabase's Google provider in the system's secure web sheet, then returns to the app at `shnayimmikra://auth-callback`. Add that URL once in the Supabase dashboard under **Authentication → URL Configuration → Redirect URLs**. Until then, signing in returns an error and guest use still works.
+Sign-in uses Supabase's Google provider in the system's secure web sheet, then returns to the app at `shnayimmikra://auth-callback`. That URL is listed in the Supabase project under **Authentication → URL Configuration → Redirect URLs**; a new Supabase project needs it added there too.
 
 ## How it's built
 
