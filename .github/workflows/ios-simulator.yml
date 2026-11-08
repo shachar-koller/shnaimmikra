@@ -82,6 +82,8 @@ jobs:
             sleep 6
             if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE"; then
               echo "::error::The app is not running after launching for $name"
+              xcrun simctl io "$UDID" screenshot "ci-results/screenshots/$name-after-crash.png" || true
+              find ~/Library/Logs/DiagnosticReports -name 'ShnayimMikra*' -mmin -5 -exec cp {} ci-results/ \; 2>/dev/null || true
               exit 1
             fi
             xcrun simctl io "$UDID" screenshot "ci-results/screenshots/$name.png"

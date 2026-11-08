@@ -92,7 +92,9 @@ final class ReaderController {
 
     private func apply(_ parsha: ParshaText) {
         text = .ready(parsha)
-        location?.position = resolvePosition(parsha, position)
+        // Resolve first: reading `position` inside the assignment would overlap the write to `location`.
+        let resolved = resolvePosition(parsha, position)
+        location?.position = resolved
     }
 
     func retry() {
