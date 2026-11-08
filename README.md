@@ -1,5 +1,7 @@
 a vibe coded shnaim mikra tracking app.
 
+There's also a native iOS app in [`ios/`](ios/README.md), which syncs with the same account.
+
 ## The Chumash reader
 
 The Chumash tab shows the selected parsha one aliyah at a time, in three views of the same reading session:

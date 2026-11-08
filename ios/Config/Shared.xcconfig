@@ -1,0 +1,5 @@
+// Settings shared by Debug and Release. The Supabase project comes from
+// Supabase.xcconfig, which is not committed: run `npm run ios:config` to write it
+// from the web app's .env, or copy Supabase.xcconfig.example. Without it the app
+// still works, with progress on the device only.
+#include? "Supabase.xcconfig"

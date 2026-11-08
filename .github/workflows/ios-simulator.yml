@@ -1,0 +1,67 @@
+name: iOS Simulator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-simulator-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-test:
+    name: Build app and test ShnayimCore
+    # Standard hosted runners are free for public repositories. Revisit costs
+    # with the owner before running this workflow if the repository is private.
+    if: ${{ github.event.repository.private == false }}
+    runs-on: macos-15
+    timeout-minutes: 25
+    env:
+      TZ: UTC
+    steps:
+      - name: Check out source
+        id: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          xcodebuild -showsdks
+
+      - name: Run Swift package tests
+        run: |
+          set -o pipefail
+          mkdir -p ci-results
+          swift test --package-path ios/ShnayimCore 2>&1 | tee ci-results/swift-tests.log
+
+      - name: Build unsigned iOS Simulator app
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          mkdir -p ci-results
+          xcodebuild build \
+            -project ios/ShnayimMikra.xcodeproj \
+            -scheme ShnayimMikra \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ShnayimMikra-DerivedData" \
+            -resultBundlePath ci-results/SimulatorBuild.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY= \
+            2>&1 | tee ci-results/simulator-build.log
+
+      - name: Upload build and test diagnostics
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-simulator-diagnostics-${{ github.run_number }}
+          path: |
+            ci-results/
+            ios/ShnayimMikra.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          if-no-files-found: warn
+          retention-days: 3
