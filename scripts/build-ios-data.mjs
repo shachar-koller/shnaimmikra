@@ -47,6 +47,7 @@ const KEYS = {
   accent: 'green', onAccent: 'on-accent', softInk: 'soft-ink', readingBackground: 'reading-bg', readingOn: 'reading-on',
   readingOnLine: 'reading-on-line', checkLine: 'check-line', danger: 'danger', warning: 'warning',
   buttonBackground: 'button-bg', buttonInk: 'button-ink', numberInk: 'number-ink',
+  tile: 'tilebg', readingLine: 'reading-line', listLine: 'list-line',
 };
 const resolve = (vars, key, depth = 0) => {
   const value = vars[key] ?? base[key];
