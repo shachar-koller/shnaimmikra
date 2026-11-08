@@ -55,6 +55,48 @@ jobs:
             CODE_SIGN_IDENTITY= \
             2>&1 | tee ci-results/simulator-build.log
 
+      # Launches the built app as a guest and screenshots each screen, so changes
+      # can be seen without a Mac. Launch arguments are handled only in Debug builds.
+      - name: Launch in Simulator and take screenshots
+        id: screenshots
+        if: ${{ success() }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-results/screenshots
+          APP="$RUNNER_TEMP/ShnayimMikra-DerivedData/Build/Products/Debug-iphonesimulator/ShnayimMikra.app"
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((r for r in devices if "iOS" in r), key=lambda r: [int(x) for x in r.rsplit("iOS-", 1)[1].split("-")])
+          phones = [d for d in devices[runtimes[-1]] if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]]
+          print((phones or [d for d in devices[runtimes[-1]] if d["name"].startswith("iPhone")])[0]["udid"])')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          BUNDLE=com.shacharkoller.ShnayimMikra
+          shot() {
+            name=$1; shift
+            xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE" "$@"
+            sleep 6
+            if ! xcrun simctl spawn "$UDID" launchctl list | grep -q "$BUNDLE"; then
+              echo "::error::The app is not running after launching for $name"
+              exit 1
+            fi
+            xcrun simctl io "$UDID" screenshot "ci-results/screenshots/$name.png"
+          }
+          shot 01-welcome
+          G=(-shnaim-mikra-guest-choice YES -debugSample YES -debugTheme grayscale)
+          shot 02-tracker "${G[@]}"
+          shot 03-chumash-flow "${G[@]}" -debugTab chumash -shnaim-mikra-reader-mode:guest flow
+          shot 04-chumash-cards "${G[@]}" -debugTab chumash -shnaim-mikra-reader-mode:guest cards
+          shot 05-chumash-classic "${G[@]}" -debugTab chumash -shnaim-mikra-reader-mode:guest classic
+          shot 06-settings "${G[@]}" -debugTab settings
+          shot 07-account "${G[@]}" -debugTab account
+          shot 08-tracker-midnight -shnaim-mikra-guest-choice YES -debugTheme midnight
+          shot 09-chumash-parchment -shnaim-mikra-guest-choice YES -debugTheme parchment -debugTab chumash
+          xcrun simctl spawn "$UDID" log show --last 5m --style compact --predicate 'process == "ShnayimMikra"' > ci-results/app.log 2>&1 || true
+
       - name: Upload build and test diagnostics
         if: ${{ always() && steps.checkout.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
