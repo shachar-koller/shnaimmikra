@@ -76,7 +76,7 @@ final class AppModel {
     private func applyScreenshotArguments() {
         let arguments = UserDefaults.standard
         if let theme = arguments.string(forKey: "debugTheme") {
-            mutate { try repository.settings(nil, patch: ["theme": .string(theme)]) }
+            mutate { try repository.settings($0, patch: ["theme": .string(theme)]) }
         }
         if arguments.bool(forKey: "debugSample") {
             let week = weekly
