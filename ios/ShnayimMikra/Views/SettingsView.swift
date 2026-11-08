@@ -202,7 +202,7 @@ struct ThemeGrid: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
             ForEach(themes) { theme in
                 let selected = app.data.theme == theme.id
                 Button {

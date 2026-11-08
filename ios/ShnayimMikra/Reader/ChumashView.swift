@@ -266,6 +266,8 @@ struct PasukPartView: View {
                 Text(HebrewText.inline(parts, palette: palette))
                     .foregroundStyle(palette.ink)
                     .lineSpacing(6)
+                    // Always the full pasuk: on a card, layout could otherwise cut it to one line.
+                    .fixedSize(horizontal: false, vertical: true)
                     .rightToLeft()
                     .textSelection(.enabled)
             } else {
@@ -307,6 +309,7 @@ struct ClassicText: View {
                 Text(paragraph.text)
                     .foregroundStyle(palette.ink)
                     .lineSpacing(8)
+                    .fixedSize(horizontal: false, vertical: true)
                     .rightToLeft()
                     .textSelection(.enabled)
                     .id("p\(index)")
