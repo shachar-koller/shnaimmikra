@@ -35,19 +35,29 @@ struct RootView: View {
             } else if welcome {
                 WelcomeView().transition(.opacity)
             } else {
-                TabView(selection: selectedTab) {
+                // The tracker stays alive so its scroll position survives a trip to another tab.
+                ZStack {
                     TrackerView(topRequest: trackerTop)
-                        .tabItem { Image(systemName: "checkmark.circle").accessibilityLabel("Tracker") }
-                        .tag(AppModel.Tab.tracker)
-                    ChumashView()
-                        .tabItem { Image(systemName: "book").accessibilityLabel("Chumash") }
-                        .tag(AppModel.Tab.chumash)
-                    SettingsView()
-                        .tabItem { Image(systemName: "slider.horizontal.3").accessibilityLabel("Settings") }
-                        .tag(AppModel.Tab.settings)
-                    AccountView()
-                        .tabItem { Image(systemName: app.user == nil ? "person.crop.circle" : "person.crop.circle.fill").accessibilityLabel("Account") }
-                        .tag(AppModel.Tab.account)
+                        .opacity(app.tab == .tracker ? 1 : 0)
+                        .allowsHitTesting(app.tab == .tracker)
+                        .accessibilityHidden(app.tab != .tracker)
+                    switch app.tab {
+                    case .tracker: EmptyView()
+                    case .chumash: ChumashView()
+                    case .settings: SettingsView()
+                    case .account: AccountView()
+                    }
+                }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    Color.clear.frame(height: NativeTabBar.contentClearance).allowsHitTesting(false)
+                }
+                // Reaches the bottom of the screen, because UIKit floats the pill above the home indicator.
+                .overlay {
+                    NativeTabBar(selected: app.tab, palette: palette, onSelect: select)
+                        .frame(maxWidth: NativeTabBar.maxWidth)
+                        .frame(height: NativeTabBar.height)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .ignoresSafeArea(edges: .bottom)
                 }
                 .transition(.opacity)
             }
@@ -85,15 +95,10 @@ struct RootView: View {
         }
     }
 
-    /// The current tab. Tapping Tracker while already on it scrolls it back to the top.
-    private var selectedTab: Binding<AppModel.Tab> {
-        Binding(
-            get: { app.tab },
-            set: { tab in
-                if tab == .tracker && app.tab == .tracker { trackerTop += 1 }
-                app.tab = tab
-            }
-        )
+    /// Tapping Tracker while already on it scrolls it back to the top.
+    private func select(_ tab: AppModel.Tab) {
+        if tab == .tracker && app.tab == .tracker { trackerTop += 1 }
+        app.tab = tab
     }
 
     private func larger(_ size: DynamicTypeSize) -> DynamicTypeSize {
