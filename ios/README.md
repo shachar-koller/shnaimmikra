@@ -17,15 +17,24 @@ gh run view <run-id>
 gh run view <run-id> --log-failed
 ```
 
-Check the run's commit SHA against the commit you pushed. A successful run means
-all `ShnayimCore` tests passed on macOS and the SwiftUI app compiled for the iOS
-Simulator. There are no app UI test targets yet. Logs and the Xcode result bundle
-are available in the run's diagnostics artifact for three days.
+Check the run's commit SHA against the commit you pushed. The workflow builds
+with the newest Xcode 26 on the runner, so the app gets the iOS 26 look. A
+successful run means all `ShnayimCore` tests passed on macOS, the SwiftUI app
+compiled for the iOS Simulator, and the app opened on the newest iPhone Pro
+Simulator for screenshots of the welcome screen, each tab, the three reader
+modes and two more themes. There are no app UI test targets yet. Screenshots,
+logs and the Xcode result bundle are in the run's diagnostics artifact for three
+days.
 
-Code signing is explicitly disabled. No Apple account, signing certificate,
-provisioning profile, or Supabase secrets are needed; the app builds with its
-existing local-only fallback. This validates compilation and core logic; it
-doesn't launch the app or test live account access.
+Each run also uploads `ShnayimMikra-ipa-<number>`, an unsigned `ShnayimMikra.ipa`
+kept for 14 days. Download it from the bottom of the run's page and install it
+on an iPhone with Sideloadly or AltStore, which sign it with a free Apple ID.
+Sign-in works in that app only when the repository variables `SUPABASE_HOST` and
+`SUPABASE_ANON_KEY` (the public anon key) are set.
+
+Code signing is explicitly disabled. No Apple account, signing certificate or
+provisioning profile is needed; without the Supabase variables the app builds
+with its local-only fallback. The run doesn't test live account access.
 
 Standard GitHub-hosted runners are free while this repository is public. The
 workflow skips private repositories; ask before enabling anything that incurs
@@ -51,7 +60,7 @@ Running on a physical phone requires separate signing setup; the CI workflow doe
 
 ### Google sign-in
 
-Sign-in uses Supabase's Google provider in the system's secure web sheet, then returns to the app at `shnayimmikra://auth-callback`. Add that URL once in the Supabase dashboard under **Authentication → URL Configuration → Redirect URLs**. Until then, signing in returns an error and guest use still works.
+Sign-in uses Supabase's Google provider in the system's secure web sheet, then returns to the app at `shnayimmikra://auth-callback`. That URL is listed in the Supabase project under **Authentication → URL Configuration → Redirect URLs**; a new Supabase project needs it added there too.
 
 ## How it's built
 

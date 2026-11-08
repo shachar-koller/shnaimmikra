@@ -9,7 +9,10 @@ test.beforeEach(async ({ page }) => {
 
 test('the tab bar switches between all four pages and marks the current one', async ({ page }) => {
   const nav = page.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('button')).toHaveText(['Tracker', 'Chumash', 'Settings', 'Account']);
+  await expect(nav.getByRole('button')).toHaveText(['', '', '', '']);
+  for (const name of ['Tracker', 'Chumash', 'Settings', 'Account']) {
+    await expect(nav.getByRole('button', { name, exact: true })).toBeVisible();
+  }
   await expect(page.locator('#tracker')).toHaveAttribute('aria-current', 'page');
   await expect(page.locator('#reading')).toBeVisible();
 

@@ -65,7 +65,32 @@ final class AppModel {
         load()
         year = calendar.cycleYear(today, israel: data.israel)
         reader = ReaderController(app: self)
+        #if DEBUG
+        applyScreenshotArguments()
+        #endif
     }
+
+    #if DEBUG
+    /// Launch arguments for CI screenshots, such as
+    /// `-debugSample YES -debugTheme midnight -debugTab chumash`. Guest data only.
+    private func applyScreenshotArguments() {
+        let arguments = UserDefaults.standard
+        if let theme = arguments.string(forKey: "debugTheme") {
+            mutate { try repository.settings($0, patch: ["theme": .string(theme)]) }
+        }
+        if arguments.bool(forKey: "debugSample") {
+            let week = weekly
+            var patch = wholeReadingPatch(.mikra1, checked: true)
+            for index in 0..<3 { patch[aliyahField(.mikra2, index)] = true }
+            setProgress(week.id, patch)
+            expanded[viewKey(week.id)] = [.mikra2]
+            for row in rows.prefix(while: { $0.day < week.day }).suffix(3) {
+                setProgress(row.id, [Reading.mikra1, .mikra2, .onkelos].reduce(into: [:]) { $0.merge(wholeReadingPatch($1, checked: true)) { $1 } })
+            }
+        }
+        if let raw = arguments.string(forKey: "debugTab"), let tab = Tab(rawValue: raw) { self.tab = tab }
+    }
+    #endif
 
     // MARK: Session
 
