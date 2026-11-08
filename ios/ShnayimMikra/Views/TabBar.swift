@@ -6,7 +6,7 @@ import UIKit
 struct NativeTabBar: UIViewRepresentable {
     /// Before iOS 26 the bar is opaque and belongs edge to edge.
     static var maxWidth: CGFloat {
-        if #available(iOS 26.0, *) { return 338 }
+        if #available(iOS 26.0, *) { return 319 }
         return .infinity
     }
     /// Tall enough for the glass pill, measured up from the bottom of the screen.
