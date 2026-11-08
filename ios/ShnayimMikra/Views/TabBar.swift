@@ -43,7 +43,7 @@ final class NativeTabBarHost: UIView, UITabBarDelegate {
         // On iPad's regular width the bar uses a compressed inline row.
         tabBar.traitOverrides.horizontalSizeClass = .compact
         tabBar.items = tabs.enumerated().map { index, tab in
-            let item = UITabBarItem(title: nil, image: Self.icon(tab.symbol), selectedImage: Self.icon(tab.selectedSymbol))
+            let item = UITabBarItem(title: nil, image: Self.icon(tab.iconAsset), selectedImage: Self.icon(tab.iconAsset + "Selected"))
             item.tag = index
             item.accessibilityLabel = tab.accessibilityName
             return item
@@ -81,9 +81,9 @@ final class NativeTabBarHost: UIView, UITabBarDelegate {
         tabBar.selectedItem = item
     }
 
-    /// Draws every symbol in the same box, since each one otherwise gets its own optical size.
-    private static func icon(_ symbol: String) -> UIImage? {
-        guard let image = UIImage(systemName: symbol) else { return nil }
+    /// Shared vector artwork, centered in the system bar's image box and tinted by the theme.
+    private static func icon(_ name: String) -> UIImage? {
+        guard let image = UIImage(named: name) else { return nil }
         let canvas = CGSize(width: 28, height: 28)
         let scale = min(24 / image.size.width, 24 / image.size.height)
         let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
@@ -102,21 +102,12 @@ private final class BottomAnchoredTabBar: UITabBar {
 }
 
 private extension AppModel.Tab {
-    var symbol: String {
+    var iconAsset: String {
         switch self {
-        case .tracker: "checkmark.circle"
-        case .chumash: "book"
-        case .settings: "slider.horizontal.3"
-        case .account: "person.crop.circle"
-        }
-    }
-
-    var selectedSymbol: String {
-        switch self {
-        case .tracker: "checkmark.circle.fill"
-        case .chumash: "book.fill"
-        case .settings: "slider.horizontal.3"
-        case .account: "person.crop.circle.fill"
+        case .tracker: "TabTracker"
+        case .chumash: "TabChumash"
+        case .settings: "TabSettings"
+        case .account: "TabAccount"
         }
     }
 
