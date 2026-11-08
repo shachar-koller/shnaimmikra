@@ -373,9 +373,9 @@ function tabBar() {
     <span class="glass-edge" aria-hidden="true"></span>
     ${TABS.map(({ id, label, icon }) => {
       const signedIn = id === 'account' && user;
-      const name = signedIn ? ` aria-label="${escapeHtml(`Account, ${user.email || 'signed in'}`)}"` : '';
+      const name = ` aria-label="${escapeHtml(signedIn ? `Account, ${user.email || 'signed in'}` : label)}"`;
       const glyph = signedIn ? `<span class="tab-avatar" aria-hidden="true">${escapeHtml(avatarInitial())}</span>` : icon;
-      return `<button type="button" class="tab" id="${id}" data-tab="${id}"${name}${id === tab ? ' aria-current="page"' : ''}>${glyph}<span class="tab-label">${label}</span></button>`;
+      return `<button type="button" class="tab" id="${id}" data-tab="${id}"${name}${id === tab ? ' aria-current="page"' : ''}>${glyph}</button>`;
     }).join('')}
   </nav>`;
 }

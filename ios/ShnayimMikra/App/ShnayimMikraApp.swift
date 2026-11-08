@@ -37,16 +37,16 @@ struct RootView: View {
             } else {
                 TabView(selection: $app.tab) {
                     TrackerView()
-                        .tabItem { Label("Tracker", systemImage: "checkmark.circle") }
+                        .tabItem { Image(systemName: "checkmark.circle").accessibilityLabel("Tracker") }
                         .tag(AppModel.Tab.tracker)
                     ChumashView()
-                        .tabItem { Label("Chumash", systemImage: "book") }
+                        .tabItem { Image(systemName: "book").accessibilityLabel("Chumash") }
                         .tag(AppModel.Tab.chumash)
                     SettingsView()
-                        .tabItem { Label("Settings", systemImage: "slider.horizontal.3") }
+                        .tabItem { Image(systemName: "slider.horizontal.3").accessibilityLabel("Settings") }
                         .tag(AppModel.Tab.settings)
                     AccountView()
-                        .tabItem { Label("Account", systemImage: app.user == nil ? "person.crop.circle" : "person.crop.circle.fill") }
+                        .tabItem { Image(systemName: app.user == nil ? "person.crop.circle" : "person.crop.circle.fill").accessibilityLabel("Account") }
                         .tag(AppModel.Tab.account)
                 }
                 .transition(.opacity)

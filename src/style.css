@@ -896,7 +896,7 @@ main { min-width: 0; }
   padding: 2px;
   border-radius: 999px;
   color: color-mix(in srgb, var(--ink) 78%, var(--soft-ink));
-  /* Clearer glass shows more of the page, so the labels carry a soft halo of the theme's surface. */
+  /* Keep the account initial readable over clearer glass. */
   text-shadow: 0 0 5px var(--glass-halo), 0 0 2px var(--glass-halo);
   transition: color var(--fast) ease;
 }
@@ -917,8 +917,6 @@ main { min-width: 0; }
 .tab > svg { filter: drop-shadow(0 0 2.5px var(--glass-halo)); }
 .tab:active > svg, .tab:active .tab-avatar { scale: .88; }
 .tab-avatar { display: grid; place-items: center; border-radius: 50%; background: var(--button-bg); color: var(--button-ink); font-size: 11px; font-weight: 700; }
-.tab-label { max-width: 100%; overflow: hidden; font-size: 10px; line-height: 1.2; font-weight: 500; letter-spacing: -.01em; white-space: nowrap; text-overflow: ellipsis; }
-.tab[aria-current='page'] .tab-label { font-weight: 650; }
 /* Pressing swells the pane a little and pushes the lens in, like a soft surface under a finger. */
 .tabbar:has(.tab:active) { scale: 1.015; }
 .tabbar:has(.tab:active) .tabglint { opacity: 1; }
@@ -932,7 +930,7 @@ main { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   .tabglint { display: none; }
 }
-/* Without transparency, a plain opaque bar keeps the labels readable. */
+/* Without transparency, a plain opaque bar keeps the icons readable. */
 @media (prefers-reduced-transparency: reduce) {
   .tabbar::before, .refraction .tabbar::before { background: var(--card); -webkit-backdrop-filter: none; backdrop-filter: none; }
   .glass-rim, .tabglint { display: none; }
