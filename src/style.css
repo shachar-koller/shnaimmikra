@@ -1663,10 +1663,6 @@ html:has(.reader-card-deck), body:has(.reader-card-deck) { overflow-x: clip; }
 .reader-continue-lead .reader-continue-name { color: inherit; opacity: .72; }
 .reader-credit { margin: 28px 6px 0; color: var(--muted); font-size: 0.6875rem; line-height: 1.5; }
 .reader-credit a { color: inherit; }
-/* Text fades out above the floating tab bar, so its labels never sit on top of Hebrew. */
-.reader-view::after { content: ''; position: fixed; inset: auto 0 0; z-index: 4; height: calc(var(--tabbar-space) + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--page) 55%, transparent); pointer-events: none; }
-/* Cards' sticky buttons sit just above the bar, so nothing should show in the gap between them. */
-.reader-view:has(.card-nav)::after { background: linear-gradient(to top, var(--page) 85%, transparent); }
 @media (min-width: 601px) {
   .reader-view { --reader-size: 1.625rem; }
   .reader-card, .reader-end { padding: 20px 24px; }
