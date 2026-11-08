@@ -19,13 +19,8 @@ struct TrackerView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Shnayim Mikra")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(palette.muted)
-                        .padding(.leading, 6)
-                        .padding(.bottom, 8)
-                        .id("top")
                     TitleRow(names: item.names)
+                        .id("top")
                     if offWeek || !inThisCycle {
                         HStack {
                             Text("Shabbos of \(formatGregorianDate(item.day, withYear: !inThisCycle))")
@@ -79,67 +74,28 @@ struct TrackerView: View {
     }
 }
 
-/// The parsha's name, with its Hebrew name across from it (.titlerow).
 struct TitleRow: View {
     @Environment(AppModel.self) private var app
     @Environment(\.palette) private var palette
     let names: [String]
 
     var body: some View {
-        TitleLayout(spacing: 10) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(app.heroName(names))
-                .font(.title.weight(.bold))
-                .tracking(-1)
+                .font(.largeTitle.weight(.bold))
                 .foregroundStyle(palette.ink)
                 .environment(\.layoutDirection, app.naming == .hebrew ? .rightToLeft : .leftToRight)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if app.naming != .hebrew {
                 Text(hebrewName(names))
-                    .font(.title2.weight(.medium))
-                    .foregroundStyle(palette.softInk)
-                    .multilineTextAlignment(.trailing)
+                    .font(.title3)
+                    .foregroundStyle(palette.muted)
                     .environment(\.layoutDirection, .rightToLeft)
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.top, 8)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
-    }
-}
-
-/// The title on the leading side and, across from it on the same baseline, the Hebrew name,
-/// which takes at most 35% of the width (.titlerow and .he).
-struct TitleLayout: Layout {
-    var spacing: CGFloat
-
-    private func sizes(_ width: CGFloat, _ subviews: Subviews) -> [CGSize] {
-        guard subviews.count > 1 else { return [subviews.first?.sizeThatFits(ProposedViewSize(width: width, height: nil)) ?? .zero] }
-        let ideal = subviews[1].sizeThatFits(.unspecified).width
-        let side = subviews[1].sizeThatFits(ProposedViewSize(width: min(ideal, width * 0.35), height: nil))
-        let title = subviews[0].sizeThatFits(ProposedViewSize(width: max(0, width - side.width - spacing), height: nil))
-        return [title, side]
-    }
-
-    private func baselines(_ sizes: [CGSize], _ subviews: Subviews) -> [CGFloat] {
-        zip(subviews, sizes).map { $0.dimensions(in: ProposedViewSize($1))[VerticalAlignment.firstTextBaseline] }
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? 360
-        let sizes = sizes(width, subviews)
-        let lines = baselines(sizes, subviews)
-        let top = lines.max() ?? 0
-        let height = zip(sizes, lines).map { top - $1 + $0.height }.max() ?? 0
-        return CGSize(width: width, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let sizes = sizes(bounds.width, subviews)
-        let lines = baselines(sizes, subviews)
-        let top = lines.max() ?? 0
-        for (index, subview) in subviews.enumerated() {
-            let x = index == 0 ? bounds.minX : bounds.maxX - sizes[index].width
-            subview.place(at: CGPoint(x: x, y: bounds.minY + top - lines[index]), proposal: ProposedViewSize(sizes[index]))
-        }
     }
 }
 
