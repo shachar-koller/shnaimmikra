@@ -10,6 +10,7 @@ public struct Theme: Identifiable, Equatable, Sendable {
     public let page, card, ink, muted, line, track, selected, accent, onAccent, softInk: String
     public let readingBackground, readingOn, readingOnLine, checkLine, danger, warning: String
     public let buttonBackground, buttonInk, numberInk: String
+    public let tile, readingLine, listLine: String
 
     public static func named(_ id: String) -> Theme { themes.first { $0.id == id } ?? themes[0] }
 }

@@ -21,9 +21,9 @@ struct RootView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
+    @State private var trackerTop = 0
 
     var body: some View {
-        @Bindable var app = app
         let theme = Theme.named(app.themeId)
         let palette = Palette(theme)
         let welcome = app.user == nil && !app.guestChosen
@@ -35,19 +35,21 @@ struct RootView: View {
             } else if welcome {
                 WelcomeView().transition(.opacity)
             } else {
-                TabView(selection: $app.tab) {
-                    TrackerView()
-                        .tabItem { Image(systemName: "checkmark.circle").accessibilityLabel("Tracker") }
-                        .tag(AppModel.Tab.tracker)
-                    ChumashView()
-                        .tabItem { Image(systemName: "book").accessibilityLabel("Chumash") }
-                        .tag(AppModel.Tab.chumash)
-                    SettingsView()
-                        .tabItem { Image(systemName: "slider.horizontal.3").accessibilityLabel("Settings") }
-                        .tag(AppModel.Tab.settings)
-                    AccountView()
-                        .tabItem { Image(systemName: app.user == nil ? "person.crop.circle" : "person.crop.circle.fill").accessibilityLabel("Account") }
-                        .tag(AppModel.Tab.account)
+                // The tracker stays alive so its scroll position survives a trip to another tab.
+                ZStack {
+                    TrackerView(topRequest: trackerTop)
+                        .opacity(app.tab == .tracker ? 1 : 0)
+                        .allowsHitTesting(app.tab == .tracker)
+                        .accessibilityHidden(app.tab != .tracker)
+                    switch app.tab {
+                    case .tracker: EmptyView()
+                    case .chumash: ChumashView()
+                    case .settings: SettingsView()
+                    case .account: AccountView()
+                    }
+                }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    GlassTabBar { tab in if tab == .tracker { trackerTop += 1 } }
                 }
                 .transition(.opacity)
             }

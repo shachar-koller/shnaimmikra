@@ -352,7 +352,7 @@ struct EndActions: View {
                     ForEach(shnayimMikraReadings, id: \.self) { reading in
                         let on = progress[aliyahField(reading, index)] == true
                         HStack(spacing: 5) {
-                            CheckCircle(on: on, size: 18)
+                            CheckBox(on: on, size: 18)
                             Text(app.readingLabel(reading)).font(.footnote).foregroundStyle(palette.ink)
                         }
                         .accessibilityElement(children: .ignore)

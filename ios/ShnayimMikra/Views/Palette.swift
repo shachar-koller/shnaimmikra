@@ -6,6 +6,7 @@ struct Palette: Equatable {
     let theme: Theme
     let page, card, ink, muted, line, track, selected, accent, onAccent, softInk: Color
     let readingBackground, readingOn, readingOnLine, checkLine, danger, warning, buttonBackground, buttonInk, numberInk: Color
+    let tile, readingLine, listLine: Color
 
     init(_ theme: Theme) {
         self.theme = theme
@@ -17,6 +18,7 @@ struct Palette: Equatable {
         checkLine = Color(hex: theme.checkLine); danger = Color(hex: theme.danger); warning = Color(hex: theme.warning)
         buttonBackground = Color(hex: theme.buttonBackground); buttonInk = Color(hex: theme.buttonInk)
         numberInk = Color(hex: theme.numberInk)
+        tile = Color(hex: theme.tile); readingLine = Color(hex: theme.readingLine); listLine = Color(hex: theme.listLine)
     }
 
     static let fallback = Palette(Theme.named("grayscale"))
@@ -55,33 +57,42 @@ enum ReaderFont {
     }
 }
 
-/// The rounded surface every section sits on.
+/// The rounded surface every section sits on (.card in src/style.css).
 struct CardStyle: ViewModifier {
     @Environment(\.palette) private var palette
-    var padding: CGFloat = 16
+    var padding: EdgeInsets
+    var stretch = false
+    var alignment: Alignment = .topLeading
 
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: stretch ? .infinity : nil, alignment: alignment)
             .background(palette.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(palette.line, lineWidth: 1))
+            .shadow(color: Color(red: 28 / 255, green: 37 / 255, blue: 29 / 255).opacity(0.025), radius: 2.5, y: 2)
+            .shadow(color: Color(red: 28 / 255, green: 37 / 255, blue: 29 / 255).opacity(0.025), radius: 12, y: 8)
     }
 }
 
 extension View {
-    func card(padding: CGFloat = 16) -> some View { modifier(CardStyle(padding: padding)) }
+    func card(padding: CGFloat = 16) -> some View {
+        modifier(CardStyle(padding: EdgeInsets(top: padding, leading: padding, bottom: padding, trailing: padding)))
+    }
+
+    func card(_ padding: EdgeInsets, stretch: Bool = false, alignment: Alignment = .topLeading) -> some View {
+        modifier(CardStyle(padding: padding, stretch: stretch, alignment: alignment))
+    }
 }
 
-/// The small uppercase heading above a number.
+/// The small heading above a number (.kicker).
 struct Kicker: View {
     @Environment(\.palette) private var palette
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text.uppercased())
-            .font(.caption.weight(.semibold))
-            .tracking(0.6)
+        Text(text)
+            .font(.caption.weight(.medium))
             .foregroundStyle(palette.muted)
     }
 }
@@ -118,31 +129,32 @@ struct PressableStyle: ButtonStyle {
     }
 }
 
-/// A round check that fills, ticks, and shows a dash while a reading is part done.
-struct CheckCircle: View {
+/// A rounded-square check (.rcheck) that fills, ticks, and shows a dash while a reading is part done.
+struct CheckBox: View {
     @Environment(\.palette) private var palette
     let on: Bool
     var mixed = false
     var size: CGFloat = 28
+    @State private var drawn: CGFloat = 0
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * (size >= 28 ? 8 / 28 : 0.25), style: .continuous)
         ZStack {
-            Circle()
+            shape
                 .fill(on ? palette.accent : palette.card)
-                .overlay(Circle().strokeBorder(on ? palette.accent : palette.checkLine, lineWidth: 1.6))
-            Image(systemName: "checkmark")
-                .font(.system(size: size * 0.46, weight: .bold))
-                .foregroundStyle(palette.onAccent)
-                .scaleEffect(on ? 1 : 0.4)
-                .opacity(on ? 1 : 0)
+                .overlay(shape.strokeBorder(on || mixed ? palette.accent : palette.checkLine, lineWidth: 1.5))
+            CheckShape()
+                .trim(from: 0, to: on ? 1 : 0)
+                .stroke(palette.onAccent, style: StrokeStyle(lineWidth: size * 0.11, lineCap: .round, lineJoin: .round))
+                .frame(width: size * 0.42, height: size * 0.32)
             Capsule()
                 .fill(palette.accent)
-                .frame(width: size * 0.42, height: 2.6)
-                .opacity(mixed && !on ? 1 : 0)
+                .frame(width: size * 0.43, height: 2.5)
+                .scaleEffect(x: mixed && !on ? 1 : 0)
         }
         .frame(width: size, height: size)
-        .animation(.spring(response: 0.32, dampingFraction: 0.6), value: on)
-        .animation(.easeOut(duration: 0.2), value: mixed)
+        .animation(.easeOut(duration: 0.2), value: on)
+        .animation(.easeOut(duration: 0.14), value: mixed)
     }
 }
 
@@ -154,20 +166,21 @@ struct StatusRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(palette.track, lineWidth: 3)
+            Circle().inset(by: 1).stroke(palette.track, lineWidth: 2)
             Circle()
+                .inset(by: 1)
                 .trim(from: 0, to: done ? 1 : fraction)
-                .stroke(palette.accent, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .stroke(palette.accent, style: StrokeStyle(lineWidth: 2))
                 .rotationEffect(.degrees(-90))
             if done {
-                Circle().fill(palette.accent).padding(1)
+                Circle().fill(palette.accent)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(.system(size: 11, weight: .heavy))
                     .foregroundStyle(palette.onAccent)
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .frame(width: 24, height: 24)
+        .frame(width: 22, height: 22)
         .animation(.spring(response: 0.45, dampingFraction: 0.75), value: fraction)
         .animation(.spring(response: 0.4, dampingFraction: 0.6), value: done)
     }
@@ -177,7 +190,7 @@ struct StatusRing: View {
 struct Bar: View {
     @Environment(\.palette) private var palette
     let fraction: Double
-    var height: CGFloat = 8
+    var height: CGFloat = 5
 
     var body: some View {
         GeometryReader { geometry in
