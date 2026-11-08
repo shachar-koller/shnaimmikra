@@ -25,6 +25,23 @@ jobs:
         id: checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      # The iOS 26 SDK gives the app the system's Liquid Glass look on iOS 26.
+      # Picks the newest installed Xcode 26 release, falling back to a beta or
+      # release candidate only when no release is installed.
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app
+          all=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V || true)
+          releases=$(grep -viE 'beta|release_candidate|_rc' <<< "$all" || true)
+          XCODE=$(tail -n 1 <<< "${releases:-$all}")
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 26 is installed on this runner."
+            exit 1
+          fi
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+
       - name: Show toolchain
         run: |
           xcodebuild -version
