@@ -20,6 +20,7 @@ import { morph } from './morph.js';
 import { applyGlass } from './glass.js';
 import { slideIn, pop, glide, followPointer, haptic, celebrate, reducedMotion } from './motion.js';
 import { createReader } from './reader.js';
+import { TAB_ICONS } from './tab-icons.js';
 
 const escapeHtml = value => value.replace(/[&<>"']/g, char => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -124,12 +125,11 @@ const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke
 // Always in the DOM so that checking and unchecking can both animate.
 const tick = '<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path pathLength="1" d="m5 12 5 5 9-10"/></svg>';
 const chevron = '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>';
-const tabIcon = paths => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const TABS = [
-  { id: 'tracker', label: 'Tracker', icon: tabIcon('<circle cx="12" cy="12" r="8.5"/><path d="m8.2 12.2 2.6 2.6 5-5.4"/>') },
-  { id: 'chumash', label: 'Chumash', icon: tabIcon('<path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.7 2-1.5 4.8-2 8.5-1.7V4.8C16.8 4.5 14 5 12 6.5Zm0 0v13.4"/>') },
-  { id: 'settings', label: 'Settings', icon: tabIcon('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/>') },
-  { id: 'account', label: 'Account', icon: tabIcon('<circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20c.8-3.8 3.6-5.8 7.2-5.8s6.4 2 7.2 5.8"/>') },
+  { id: 'tracker', label: 'Tracker', icon: TAB_ICONS.tracker },
+  { id: 'chumash', label: 'Chumash', icon: TAB_ICONS.chumash },
+  { id: 'settings', label: 'Settings', icon: TAB_ICONS.settings },
+  { id: 'account', label: 'Account', icon: TAB_ICONS.account },
 ];
 
 
